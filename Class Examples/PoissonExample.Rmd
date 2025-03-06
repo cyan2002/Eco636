@@ -1,21 +1,27 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
 ```{r, include = TRUE}
 crab <- read.table("crabs.txt", h=T)
 ```
 
-1. State the Question
+1.  State the Question
 
-Can variation in relative crab abundance be explained by: Site and Temperature
+Can variation in relative crab abundance be explained by: Site and
+Temperature
 
-Does crab abundance vary across sites AND does crab abundance vary with temperatures?
+Does crab abundance vary across sites AND does crab abundance vary with
+temperatures?
 
-Sites- > Differences in intercepts
-Temperature -> Difference in slopes
+Sites- \> Differences in intercepts Temperature -\> Difference in slopes
 
-Data type: count
-Error Distribution: Poisson
-Therefore: Poisson ANCOVA (categorical and continous variable)
+Data type: count Error Distribution: Poisson Therefore: Poisson ANCOVA
+(categorical and continuous variable)
 
-2. Data exploration
+2.  Data exploration
 
 ```{r, include = TRUE}
 install.packages(GGalley)
@@ -23,7 +29,8 @@ library(GGalley)
 ggpairs(crab)
 ```
 
-Found potential collinearity between air and water temperatures... Create global models and use VIF to see which variable we should keep.
+Found potential collinearity between air and water temperatures...
+Create global models and use VIF to see which variable we should keep.
 
 ```{r, include = TRUE}
 library(car)
@@ -31,7 +38,8 @@ m1 <- glm(Crabs ~ Site + AirTemp + WaterTemp, data = crab, family = poisson)
 vif(m1)
 ```
 
-Air temp is slightly better than water temp and is easier to measure, so choose air temp in this case. Rule of thumb, GVIF < 2 is ideal. 
+Air temp is slightly better than water temp and is easier to measure, so
+choose air temp in this case. Rule of thumb, GVIF \< 2 is ideal.
 
 ```{r, include = TRUE}
 library(car)
@@ -47,16 +55,52 @@ boxplot(crab$Crabs ~ crab$Site)
 plot(crab$Crabs ~ crab$AirTemp)
 ```
 
-Some variation by site, and there seems to be some window that allows crabs to thrive in (some optimum air temperature)
+Some variation by site, and there seems to be some window that allows
+crabs to thrive in (some optimum air temperature)
 
-At many sites we don't see any crabs, a lot of zeros at our sites, but we also have a pretty long tail. We might expect a quadratic relationship!
+At many sites we don't see any crabs, a lot of zeros at our sites, but
+we also have a pretty long tail. We might expect a quadratic
+relationship!
 
-3) Describe the model
+3)  Describe the model
 
-Linear predictor: n~i~ + B~o~ + B~site~X~sitei~ + B~air~X~airi~
-B~o~ is the intercept at the reference site when air temperature is 0
-B~site~ are the 6 contrasts between each of the sites (when air temp = 0 )
+Linear predictor: n~i~ + B~o~ + B~site~X~sitei~ + B~air~X~airi~ B~o~ is
+the intercept at the reference site when air temperature is 0 B~site~
+are the 6 contrasts between each of the sites (when air temp = 0 )
 B~air~ is the change in n with a unit increase in air temp (slope)
 
+Error/residuals distributions: e~i~ \~ Pois(lambda)
 
+when lambda = u, this means our variance is equal to our mean (the mean being our modeled mean)
 
+link function: n = g(u) = log(u)
+
+Linear predictor: n~i~ + B~o~ + B~site~X~sitei~ + B~air~X~airi~ + B~air2~X~air2i~
+
+```{r, include = TRUE}
+crab$AirTemp2 <- (crab$AirTemp^2)
+```
+
+What are our assumptions?
+-Residuals have a Poisson Distribution
+-Observations are independent
+-Measured without error
+
+Fit the model
+```{r, include = TRUE}
+fitList <- list(
+  m0 <- glm(Crabs~1, data = crab, family = poisson),
+  m1 <- glm(Crabs~Site, data = crab, family = poisson),
+  m2 <- glm(Crabs~AirTemp, data = crab, family = poisson),
+  m3 <- glm(Crabs~AirTemp+AirTemp2, data = crab, family = poisson),
+  m4 <- glm(Crabs~Site+AirTemp, data = crab, family = poisson),
+  m5 <- glm(Crabs~Site+AirTemp+AirTemp2, data = crab, family = poisson)
+)
+```
+
+5) Evaluate the model output
+
+```{r, include = TRUE}
+library(AICcmodavg)
+aictab(fitList, modnames = paste0("m",0:5))
+```
