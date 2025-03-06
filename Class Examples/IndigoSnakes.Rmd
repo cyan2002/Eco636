@@ -1,0 +1,46 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r, include = TRUE}
+snakes <- read.table("indigos.txt", h=T)
+snakes$log.HR = log(snakes$hr.size)
+```
+
+Question: Does habitat composition at the home range scale explain
+variation in home range size?
+
+```{r, include = TRUE}
+mG <- glm(log.HR ~ urban1.50 + upland1.50 + wetland1.50, data = snakes)
+model.matrix(~ urban1.50 + upland1.50 + wetland1.50, data = snakes)
+summary(mG)
+mTop <- glm(log.HR ~ urban1.50 + upland1.50, data = snakes )
+```
+
+Math model:
+
+Y~i~ = B~o~ + B~1~X~urbi~ + B~2~X~upi~ + B~3~X~wet~ + e~i~
+
+Looking at the summary: The residuals are "ok" and may seem normal. When
+we have no urban, wetland, or upland -\> territory size should be 4.6
+For every one unit urban increase, there is a 1.8 decrease unit in
+territory size "going 0 to all upland habitat" you increase by 0.7171
+territory size "going 0 to all wetland habitat" you increase by 0.6711
+territory size
+
+Create models with all 3, some with only 1, and some with
+combinations... The first 3 models were all similar, these ones were...
+
+Urban + Upland Urban Urban + Upland + Wetlands
+
+```{r, include = TRUE}
+summary(mTop)
+```
+
+Urban now shows a decrease of 2 per 0-100 habitat. 
+
+Is per unit 1% or 0 to 100%?
+
+Confidence interval -> observation count

@@ -1,0 +1,100 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r include = TRUE}
+getwd()
+mander <- read.table(file = "salamander.txt", h=T)
+mander$tail <- mander$TL-mander$SVL
+```
+
+1.  State the Question
+
+Does tail length scale predictable with SVL?
+
+H~o~: There is no relationship between tail length and SVL -response:
+tail length -Explanatory: SVL
+
+2.  Data exploration
+
+```{r, include = TRUE}
+plot(tail~SVL, data = mander)
+```
+
+What kind of parameters (B~o~ and B~1~) do you expect?
+
+Makes sense for B~o~ to be 0 or close to 0. B~1~ looks close to one.
+
+3.  Describe the model
+
+In words: Is there a significant relationship between TL and SVL?
+
+In math: Y~i~ + B~1~X~1i~ + e~i~
+
+4.  Fit the model
+
+```{r include = TRUE}
+mALLo <- lm(tail ~ SVL, data = mander)
+summary(mALLo)
+```
+
+Place in Equation: Y = 4.99 + 0.86x, relationship between x and y.
+
+5.  Evaluate the Model
+
+Model validations - check assumptions! -Residuals normal -Constant
+variance -Observations are independent -Predictors measured without
+error (fixed X)
+
+```{r, include = TRUE}
+par(mfrow = c(2,2))
+plot(mALLo)
+```
+
+Residuals vs Fitted are not a straight line and therefore not the best
+fit for the model. QQ plot is alright , some spots at the end veer off
+the straight line. Scale location plot is OK, but some stragglers are a
+bit concerning. Residuals vs leverage indicates that potential outlines
+do not have high leverage and don't have a strong influence on
+parameters. For every unit increase of SVL the tail will increase 0.89 mm.
+
+Model selection: AIC table
+
+6. Interpret the results
+
+-Use predict to show relationship AND CI
+
+```{r, include = TRUE}
+new.df <- data.frame(SVL = mander$SVL)
+pred <- predict(mALLo, newdata=new.df, interval = "confidence")
+
+plot(mander$tail~mander$SVL)
+lines(pred[,1] ~ new.df$SVL, lwd = 2)
+lines(pred[,2] ~ new.df$SVL, lty = 2, col = "red")
+lines(pred[,3] ~ new.df$SVL, lty = 2, col = "red")
+```
+
+How are the confidence intervals calculated? Why aren't they the same all the wall along the model line?
+
+The more data we have around the model, the more confident we are in that model mean. 
+
+Does the intercept makes biological sense?
+
+Not particularly... Ways to standardize data:
+
+Centering
+-Centering data around 0 by subtracting the mean.
+-Units remain the same
+
+Normalization
+-Subtracting the mean and dividing by the sample SD
+-One unit is now a standard deviation (a bit harder to interpret)
+
+By creating a new model with the centered or normalized data then the intercept will change to make it more biologically relevant. 
+When using normal changed data -> slope is the change in tail length for every 1 SD change in SVL. 
+
+Multiple Linear Regression
+Y~i~ = B~o~ + B~1~X~1i~ + B~2~X~2i~ + e~i~
+

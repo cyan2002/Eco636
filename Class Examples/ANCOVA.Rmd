@@ -1,0 +1,79 @@
+Making Datq
+```{r, include = TRUE}
+set.seed(123)
+covariate <- runif(100,0,50)
+group <- rep(c("A", "B"), each=50)
+intA <- 100
+intB <- 150
+slopeA <- 6
+sigma <- 60
+pars <- c(intA, intB, slopeA)
+dm <- model.matrix(~group+covariate)
+response <- rnorm(100, dm %*% pars, sigma)
+sim.dat <- data.frame(response, group, covariate)
+plot(response ~ covariate, col = c(1,2))
+```
+
+
+What is the slope for both groups?
+-Looks positive
+-Difference in intercept
+
+```{r, include = TRUE}
+Manc <- lm(response ~ group + covariate, data = sim.dat)
+summary(Manc)
+```
+GroupA estimate: intercept for group A
+GroupB esimate: difference in intercept between group A and B
+covariate estimate: relationship between response and explanatory variable (slope)
+Compared to created data, model didn't do too bad
+
+```{r, include = TRUE}
+plot(response~covariate, col = as.factor(group))
+```
+
+```{r, include = TRUE}
+set.seed(123)
+covariate <- runif(100,0,50)
+group <- rep(c("A", "B"), each=50)
+intA <- 100
+intB <- 150
+slopeA <- 6
+slopeB <- -5
+sigma <- 40
+pars <- c(intA, intB, slopeA, slopeB)
+dm <- model.matrix(~group*covariate)
+response <- rnorm(100, dm %*% pars, sigma)
+sim.dat <- data.frame(response, group, covariate)
+plot(response ~ covariate, col = c(1,2))
+```
+
+slope for group B should be -1
+
+Fit our model
+
+```{r, include = TRUE}
+Mint <- lm(response ~ group * covariate, data = sim.dat)
+summary(Mint)
+est <- coef(Mint)
+plot(response ~ covariate, col = as.factor(group))
+abline(100,6,lwd = 1,lty=2,col=2)
+abline(100+150,1,lwd = 1,lty=2,col=4)
+
+abline(est[1],est[3],lwd=2, col=2)
+abline(est[1] + est[2], est[3] + est[4],lwd=2, col=4)
+
+```
+
+Lines represent what we told R lines should be vs what R calculated for the lines
+
+Intercept estimate -> intercept of group A
+groupB estiamte -> estimate difference between group A and B
+covariate estimate -> slope between group A and response variable
+groupB:covariate -> slope difference between group A and B
+
+```{r, include = TRUE}
+
+```
+
+

@@ -1,0 +1,62 @@
+```{r, include = TRUE}
+crab <- read.table("crabs.txt", h=T)
+```
+
+1. State the Question
+
+Can variation in relative crab abundance be explained by: Site and Temperature
+
+Does crab abundance vary across sites AND does crab abundance vary with temperatures?
+
+Sites- > Differences in intercepts
+Temperature -> Difference in slopes
+
+Data type: count
+Error Distribution: Poisson
+Therefore: Poisson ANCOVA (categorical and continous variable)
+
+2. Data exploration
+
+```{r, include = TRUE}
+install.packages(GGalley)
+library(GGalley)
+ggpairs(crab)
+```
+
+Found potential collinearity between air and water temperatures... Create global models and use VIF to see which variable we should keep.
+
+```{r, include = TRUE}
+library(car)
+m1 <- glm(Crabs ~ Site + AirTemp + WaterTemp, data = crab, family = poisson)
+vif(m1)
+```
+
+Air temp is slightly better than water temp and is easier to measure, so choose air temp in this case. Rule of thumb, GVIF < 2 is ideal. 
+
+```{r, include = TRUE}
+library(car)
+m1 <- glm(Crabs ~ Site + AirTemp, data = crab, family = poisson)
+vif(m1)
+```
+
+Now all values are below two and we are happy.
+
+```{r, include = TRUE}
+hist(crab$Crabs)
+boxplot(crab$Crabs ~ crab$Site)
+plot(crab$Crabs ~ crab$AirTemp)
+```
+
+Some variation by site, and there seems to be some window that allows crabs to thrive in (some optimum air temperature)
+
+At many sites we don't see any crabs, a lot of zeros at our sites, but we also have a pretty long tail. We might expect a quadratic relationship!
+
+3) Describe the model
+
+Linear predictor: n~i~ + B~o~ + B~site~X~sitei~ + B~air~X~airi~
+B~o~ is the intercept at the reference site when air temperature is 0
+B~site~ are the 6 contrasts between each of the sites (when air temp = 0 )
+B~air~ is the change in n with a unit increase in air temp (slope)
+
+
+
