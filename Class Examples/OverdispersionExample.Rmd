@@ -1,0 +1,59 @@
+```{r}
+require(MASS)
+set.seed(123)
+
+n <- 100
+X <- sort(runif(n, 0, 4)) #continuous predictor variable
+b0 <- -1 #intercept
+b1 <- 1 #slope: change in y on LP scale
+lin.pred <- b0 + b1*X #linear predictor
+eY <- exp(lin.pred) #exp count: response scale
+
+c.P <- rpois(n = n, lambda = eY) #poisson distribution
+c.NB <- rnegbin(n=n, mu = eY, theta = 2.5) #negative binomial distribution
+
+m.pois <- glm(c.P ~ X, family = poisson)
+summary(m.pois)$coefficients
+```
+
+For every unit of X increase, we increase log y (1.015) because it's still on a linear predictor scale. Changing it to a response scale the graph would look exponential.
+
+model mean of y = e\^(B~o~ + B~1~X~1~)
+
+Every time we increase by a unit of X, we increase the predict value of y by B~1~
+
+```{r}
+summary(m.pois)
+```
+
+Fit a model that assumes poisson distribution with data that was created for poisson. 
+
+How do we know how adequate our model is? -> deviances
+
+```{r}
+dev <- summary(m.pois)$deviance
+d.o.f <- summary(m.pois)$df.residual
+
+#Chi-squared test (>0.05 indicates adequate fit)
+1-pchisq(dev, d.o.f)
+```
+Looking at the value, it does pretty well. 
+
+```{r}
+m.negbin <- glm(c.NB ~ X, family = poisson)
+
+dev.nb <- summary(m.negbin)$deviance
+dof.nb <- summary(m.negbin)$df.residual
+
+1-pchisq(dev.nb, dof.nb)
+```
+
+Not good value... That's what we get for trying to fit a poisson distribution to a negative binomial. 
+
+```{r}
+require(DHARMa)
+m.pois.simRsid <- simulateResiduals(fittedModel = m.pois, plot = F)
+plot(m.pois.simRsid)
+```
+
+Use DHARMa package because trying to compare GLM with link function looks at non transformed scale, but the package allows you to look at residuals that are transformed. 

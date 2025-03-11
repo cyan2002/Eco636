@@ -25,7 +25,7 @@ Data type: count Error Distribution: Poisson Therefore: Poisson ANCOVA
 
 ```{r, include = TRUE}
 install.packages(GGalley)
-library(GGalley)
+library(GGally)
 ggpairs(crab)
 ```
 
@@ -98,9 +98,51 @@ fitList <- list(
 )
 ```
 
+We need Airtemp with Airtemp2 always because y = x^2 + x is the shape we want not just y = x^2
+
 5) Evaluate the model output
 
 ```{r, include = TRUE}
 library(AICcmodavg)
 aictab(fitList, modnames = paste0("m",0:5))
+
+summary(m5)
 ```
+We choose model 5 because it has the lowest AICc value. Site and airtemp is important when it comes to crab count. 
+
+Looking at the summary table, the residuals are not too great. It would seem that the residuals are not very normally distributed. Airtemp is positively correlated, but Airtemp2 is negatively correlated. Originates from -X^2 + x = y (graph on desmos and formula works out). Each site coefficient is a contrast between the intercept of their own and the reference site (intercept being estimate of crab count when air temp = 0). 
+
+Interpret the results
+
+-Use models to predict differences in expected abundance among sites
+-> Fix temperature at some value...
+mean?
+o?
+value of management interest?
+Others?
+
+```{r, include = TRUE}
+AirTemps = seq(min(crab$AirTemp), max(crab$AirTemp), length=300)
+Sites <- levels(as.factor(crab$Site))
+
+pred.df2 <- expand.grid(Site = Sites, AirTemp = AirTemps)
+pred.df2$AirTemp2 <- pred.df2$AirTemp^2
+pred2 <- predict(m5, newdata = pred.df2, se.fit = TRUE, type = "response")
+pred.df2$fit <- pred2$fit
+pred.df2$se.fit <- pred2$se.fit
+
+# make CI (by hand since package not working well)
+pred.df2$resp.lo <- pred.df2$fit - 1.96*pred.df2$se.fit
+pred.df2$resp.hi <- pred.df2$fit + 1.96*pred.df2$se.fit
+
+ggplot(pred.df2, aes(x = AirTemp, y = fit, color = Site, fill = Site)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=resp.lo, ymax=resp.hi), alpha=0.1, colour = NA) +
+  geom_point(data=crab, aes(x = AirTemp, y = Crabs), size = 2, alpha = 0.4) +
+  ylab("Probability of presence") +
+  xlab("Temp (C)") +
+  theme_classic()
+```
+
+Why do we fix values?
+
