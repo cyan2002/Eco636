@@ -1,0 +1,481 @@
+Lab 6 Assignment ECO 636 Chance Yan 3/7/25
+
+Quiz Yourself: by writing out the algebraic equation an additive version of this model and defining each piece before reading on.
+
+Y~i~ = B~o~ + B~1~X~1i~ + B~2~X~2i~ + e~i~
+
+Quiz yourself: if I standardize the two continuous explanatory variables X1 and X2, how does my interpretation of the intercept differ? What about the two slope terms, β1 and β2? Now that the statistical model includes two continuous explanatory variables, can the assumptions of the linear model finally be ignored (short answer: no :) )? Remind yourself what these assumptions are, as they relate to:
+
+• normal distribution of. . . • homogeneity of. . . • observations are. . . • predictors are measured. . .
+
+If you standardized the two variables, the interpretation will differ if you choose to normalize your data. One unit of what you are trying to interpret becomes one standard deviation rather than one unit which is something to keep in mind when looking at the numbers. The intercept is the amount of response variable for the average explanatory variable. Slope is change in 1 SD instead of unit.
+
+Worked Example...
+
+Response: Creeper Abundance Explanatory Variable: Pole-sized trees, road density, saw-timber tree proportion, late-succession patches
+
+Hypothesis:
+
+1)  decrease at sites with a higher proportion of pole-sized trees (13-30 cm)
+
+2)  decrease with increasing road density (km/km2)
+
+3)  increase at sites with a higher proportion of saw-timber trees (\>30 cm)
+
+4)  increase as the mean size of late-successional patches increases
+
+```{r, include = TRUE}
+wd <- "/Users/chanceyan/Documents/R/Eco636/Lab6/"
+Creeps <- read.table(file = paste0(wd, "creeps.txt"), header = TRUE)
+names(Creeps)
+head(Creeps)
+str(Creeps)
+## Any missing values?
+colSums(is.na(Creeps))
+## Let's look at the distribution of the response.
+par(mfrow=c(1,2))
+# Boxplot of Relative abundance
+boxplot(Creeps$abund, cex.axis=0.8,
+ylab="Relative abundance", main="")
+# Histogram of Relative abundance
+hist(Creeps$abund, breaks=seq(0,1,0.05),
+cex.axis=0.8, xlab="Relative abundance", main="")
+```
+
+Data looks okay, now to visualize abundance and explanatory variables.
+
+```{r, include = TRUE}
+# Create graph to display pairwise correlations
+library(ggplot2)
+library(GGally)
+ggpairs(Creeps)
+# Let's just look at variables with hypothesized effects base R way and the psych way
+vars <- c("abund","road.dens","mps.CS","saw", "pole")
+ggpairs(Creeps[, vars])
+```
+
+Quiz yourself : based on your exploration of the linear relationships between variables, which explanatory variables do you think will have the biggest effect on creeper abundance? Are you worried about collinearity?
+
+Based off the plots, the strongest correlated data seems to lie with saw and pole varaibles; however, I am also worried a bit about collinearity between saw and pole AND saw and mps.CS
+
+```{r, include = TRUE}
+## Convert percentages to proportions
+Creeps$saw <- round(Creeps$saw/100,2)
+Creeps$pole <- round(Creeps$pole/100,2)
+## Standardizing/normalizing all relevant explanatory variables. We will save these vec
+saw.s <- scale(Creeps$saw, center = TRUE, scale = TRUE)
+pole.s <- scale(Creeps$pole, center = TRUE, scale = TRUE)
+roads.s <- scale(Creeps$road.dens, center = TRUE, scale = TRUE)
+patch.s <- scale(Creeps$mps.CS, center = TRUE, scale = TRUE)
+## Now let's add these scaled values to our Creeps dataframe
+Creeps$saw.s <- as.numeric(saw.s)
+Creeps$pole.s <- as.numeric(pole.s)
+
+Creeps$roads.s <- as.numeric(roads.s)
+Creeps$patch.s <- as.numeric(patch.s)
+## Now you should look at the dataframe to make sure it looks right!
+
+## fit the full additive model
+full <- glm(abund~roads.s + patch.s + saw.s + pole.s, Creeps, family = gaussian)
+## look at basic model validation plots
+par(mfrow=c(2,2))
+plot(full)
+# now extract and explore the residuals
+par(mfrow=c(1,1))
+hist(resid(full),main="",xlab="Residuals")
+## You can even do this by each covariate!
+par(mfrow=c(2,2))
+plot(resid(full)~Creeps$saw.s,pch=16,
+ylab="Residuals",xlab="Sawtimber (%)")
+abline(h=0,col=2,lty=2)
+plot(resid(full)~Creeps$patch.s,pch=16,
+ylab="Residuals",xlab="Mean patch size (ha)")
+abline(h=0,col=2,lty=2)
+plot(resid(full)~Creeps$roads.s,pch=16,
+ylab="Residuals",xlab=expression("Road density (km/km'ˆ{2}~')"))
+abline(h=0,col=2,lty=2)
+plot(resid(full)~Creeps$pole.s,pch=16,
+ylab="Residuals",xlab="Pole-sized trees (%)")
+abline(h=0,col=2,lty=2)
+```
+
+Quiz yourself : How do you feel about the standardizations? What do you think of these plots? Are the assumptions of the linear model being met here?
+
+I think the standardization are doing fairly well. The diagnostic plots seem to be showing normality and the homogeneity of variance seems to be good as well. I believe the assumptions of the linear model to be met alright. Outliers do not go past the cook's distance and therefore do not need to removed 100%.
+
+```{r, include = TRUE}
+library(AICcmodavg)
+models <- list()
+models[[1]] <- glm(abund~1, Creeps, family=gaussian)
+models[[2]] <- glm(abund~roads.s, Creeps, family=gaussian)
+models[[3]] <- glm(abund~patch.s, Creeps, family=gaussian)
+models[[4]] <- glm(abund~saw.s, Creeps, family=gaussian)
+models[[5]] <- glm(abund~pole.s, Creeps, family=gaussian)
+# Names of the list are in sequential order.
+names(models) <- c("null","road","patch","saw","pole")
+aictab(models) # AICcmodavg
+```
+
+Quiz yourself: looking at the model summaries, try to explain what they tell you about the model. How do these models compare using AIC, and, based on your exploration of the relationships with the correlation plots, is this surprising? Finally, if you are unsure what any of the columns in the AIC tables mean ask your classmates and/or Meg/TA.
+
+The table suggests that the saw model represents the response and explanatory relationship the "best"; however, the pole model comes close ish. I would feel ok confidence about choosing the saw model out of these models. I would not find these results surprising since we saw there was a strong correlation between these variables in the early coplots.
+
+```{r, include = TRUE}
+## Model list with all possible combinations
+models <- list("null" = glm(abund~1, Creeps, family=gaussian),
+"road" = glm(abund~roads.s, Creeps, family=gaussian),
+"patch"= glm(abund~patch.s, Creeps, family=gaussian),
+"saw" = glm(abund~saw.s, Creeps, family=gaussian),
+"pole"= glm(abund~pole.s, Creeps, family=gaussian),
+"full" = glm(abund~roads.s + patch.s + saw.s + pole.s, Creeps,
+             family=gaussian),
+"rd+ptch+saw"= glm(abund~roads.s + patch.s + saw.s, Creeps,
+family=gaussian),
+"rd+saw+pol" = glm(abund~roads.s + saw.s + pole.s, Creeps,
+family=gaussian),
+"rd+ptch+pol" = glm(abund~roads.s + patch.s + pole.s, Creeps,
+family=gaussian),
+"ptch+saw+pol" = glm(abund~patch.s + saw.s + pole.s, Creeps,
+family=gaussian),
+"rd+ptch" = glm(abund~roads.s + patch.s, Creeps, family=gaussian),
+"rd+saw" = glm(abund~roads.s + saw.s, Creeps, family=gaussian),
+"rd+pol" = glm(abund~roads.s + pole.s, Creeps, family=gaussian),
+"ptch+saw" = glm(abund~patch.s + saw.s, Creeps, family=gaussian),
+"ptch+pol"= glm(abund~patch.s + pole.s, Creeps, family=gaussian),
+"saw+pol" = glm(abund~saw.s + pole.s, Creeps, family=gaussian))
+
+# Names of the list are in sequential order.
+aictab(models)
+```
+
+Quiz yourself: Before you check all of these models - which ones do you think will be ranked highest based on what you learned above?
+
+I think the model with pole and saw will be the best models since they have the highest correlation with abundances and since they were relatively close as well.
+
+Quiz yourself : the saw explanatory variable (i.e., proportion of sawtimber within a site) is in all of the models with ∆AICc \<2. What do you think this indicates?
+
+The saw explanatory variable most likely to be correlated to the abundance response variable. I would most likely include that variable in my analysis.
+
+```{r, include = TRUE}
+library(car)
+vif(models$`rd+saw+pol`)
+```
+
+Doesn't look good! Try to remove pol.
+
+```{r, include = TRUE}
+vif(models$`rd+saw`)
+```
+
+Quiz yourself : How does this one look?
+
+Great, values are below 2 and we are happy.
+
+```{r, include = TRUE}
+library(HH)
+library(ggplot2)
+## Create data frame
+saws.seq <- seq(min(Creeps$saw.s),max(Creeps$saw.s),0.05)
+roads.mean <- mean(Creeps$roads.s)
+# Vary saw and keep roads constant
+creep.df <- data.frame(saw.s = saws.seq, roads.s = roads.mean)
+# Predict relationship
+preds <- predict(models$`rd+saw`, newdata=creep.df, se.fit = TRUE, type = "response")
+preds2 <- interval(models$`rd+saw`,preds)
+pred.df <- data.frame(creep.df,preds2)
+head(pred.df) # take a look
+# Now lets plot using ggplot
+ggplot(pred.df,aes(x=saw.s,y=fit))+
+geom_line() +
+geom_ribbon(data = pred.df, aes(ymin = pi.low, ymax = pi.hi),
+alpha = 0.1) +
+geom_ribbon(data = pred.df, aes(ymin = ci.low, ymax = ci.hi),
+alpha = 0.2) +
+  theme_minimal() + ylab("Relative Abundance") +
+xlab("Sawlog (%)") +
+theme(panel.border = element_rect(colour = "black",fill=NA),
+legend.position = "none")
+```
+
+Quiz yourself : what does this plot tell you? Does it make sense ecologically? Can you really find a relative creeper abundance of -0.2? Also, relative abundance is bound between 0 and 1, so it doesn’t make sense to measure an abundance value \<0 either. What might this tell us about the error distribution we’re using?
+
+From this plot alone it doesn't make sense ecologically because we've transformed the data. It doesn't make sense ecologically because you can't have a negative percent of saw trees in an area. You cannot find a creeper abundance of -0.2.
+
+```{r, include = TRUE}
+# getting the mean and sd from the original scaling of each explanatory variable
+saw.mean <- attr(saw.s, which = "scaled:center")
+saw.sd <- attr(saw.s, which = "scaled:scale")
+road.mean <- attr(roads.s, which = "scaled:center")
+road.sd <- attr(roads.s, which = "scaled:scale")
+pred.df$saw <- (pred.df$saw.s*saw.sd)+saw.mean
+pred.df$roads <- (pred.df$roads.s*road.sd)+road.mean
+# Now lets plot the transformed data using ggplot
+ggplot(pred.df,aes(x=saw,y=fit))+
+geom_line() +
+geom_ribbon(data = pred.df, aes(ymin = pi.low, ymax = pi.hi),
+alpha = 0.1) +
+geom_ribbon(data = pred.df, aes(ymin = ci.low, ymax = ci.hi),
+alpha = 0.2) +
+theme_minimal() + ylab("Relative Abundance") +
+xlab("Sawlog (%)") +
+theme(panel.border = element_rect(colour = "black",fill=NA),
+legend.position = "none")
+```
+
+Quiz yourself: Can you make the same plots but with sawlog % held constant and varying road density? How do those relationships look?
+
+```{r, include = TRUE}
+library(HH)
+library(ggplot2)
+## Create data frame
+roads.seq <- seq(min(Creeps$roads.s),max(Creeps$roads.s), 0.05)
+saw.mean <- mean(Creeps$saw.s)
+# Vary roads and keep saw constant
+creep.df <- data.frame(saw.s = saw.mean, roads.s = roads.seq)
+# Predict relationship
+preds <- predict(models$`rd+saw`, newdata=creep.df, se.fit = TRUE, type = "response")
+preds2 <- interval(models$`rd+saw`,preds)
+pred.df <- data.frame(creep.df,preds2)
+head(pred.df) # take a look
+
+# getting the mean and sd from the original scaling of each explanatory variable
+road.mean <- attr(roads.s, which = "scaled:center")
+road.sd <- attr(roads.s, which = "scaled:scale")
+saw.mean <- attr(saw.s, which = "scaled:center")
+saw.sd <- attr(saw.s, which = "scaled:scale")
+pred.df$saw.s <- (pred.df$saw.s*saw.sd)+saw.mean
+pred.df$roads.s <- (pred.df$roads.s*road.sd)+road.mean
+# Now lets plot the transformed data using ggplot
+ggplot(pred.df,aes(x=roads.s,y=fit))+
+geom_line() +
+geom_ribbon(data = pred.df, aes(ymin = pi.low, ymax = pi.hi),
+alpha = 0.1) +
+geom_ribbon(data = pred.df, aes(ymin = ci.low, ymax = ci.hi),
+alpha = 0.2) +
+theme_minimal() + ylab("Relative Abundance") +
+xlab("Road") +
+theme(panel.border = element_rect(colour = "black",fill=NA),
+legend.position = "none")
+
+summary(models$`rd+saw`)
+```
+
+They look similar in the fact that they're both positive; however, I think the saw variable is a slightly steeper slope. They both may be in fact correlated with creeper abundances.
+
+Finally, make some conclusions based on your research hypotheses and predictions. What did you learn from this analysis and, importantly, what should we report to the folks that are tasked with providing management recommendations? Are you confident that these models accurately depict the mechanisms influencing brown creeper populations?
+
+We learned that creeper abundances are impacted mainly by saw trees and their percentages. As the amount of saw trees increase we see an increase in creeper abundances. Meanwhile, we could not find strong evidence of road correlation with creeper abundances. Therefore, we should provide management recommendations with reducing the cut down of saw trees to protect creeper populations. I am not too confident in going with this model as it seems counter intuitive to say roads do not affect bird populations and the aic table returned many results that were close. Further research would need to be looked into for this study.
+
+EXERCISE LAB 6:
+
+Multiple continuous variables -\> Multiple linear regression model
+
+Equation: Y~i~ = B~o~ + B~1~X~1i~ + B~2~X~2i~ + e~i~
+
+Response: Number of Species
+Explanatory: Shrub and leaf cutter, anthropogenic and forest graduation. 
+
+a.  exploration of the distribution and spread of response variable (what did you do?)
+
+```{r, include = TRUE}
+wd <- "/Users/chanceyan/Documents/R/Eco636/Lab6/"
+bird <- read.csv(file = paste0(wd, "birds.veg.csv"), header = TRUE)
+names(bird)
+head(bird)
+str(bird)
+## Any missing values?
+colSums(is.na(bird))
+## Let's look at the distribution of the response.
+par(mfrow=c(1,2))
+# Boxplot of Relative abundance
+boxplot(bird$spp.Birds, cex.axis=0.8,
+ylab="Relative abundance", main="")
+# Histogram of Relative abundance
+hist(bird$spp.Birds)
+```
+
+I created a histogram and boxplot to understand the spread and variance of the response variable. Histogram and boxplot suggest data looks alright and I expect normalish data. Boxplot also seems to show a good equal variance/homoegentic for abundances.
+
+b.  exploratory plots to identify meaningful explanatory variables for analysis (i.e. pairs plots)
+
+```{r, include = TRUE}
+# Create graph to display pairwise correlations
+library(ggplot2)
+library(GGally)
+
+# Let's just look at variables with hypothesized effects base R way and the psych way
+vars <- c("spp.Birds","shrub","litter","forest.grad","anthro.grad")
+ggpairs(bird[, vars])
+```
+
+There seems to be low correlation across the board which is good for colinearity; however, we might expect to find that none of the variables are related to number of species. There seems to be a little concern between leaf litter and shrub which makes sense given the nature of both variables.
+
+c.  report the null hypotheses
+
+The null hypothesis is that shrub cover, litter cover, forest graduation, and anthropogenic graduation do not correlate with the amount of bird species.
+
+The alternate hypothesis is that one or multiple of these variables increases the number of species in the region.
+
+d. test for potential collinearity in the data, and act accordingly 
+
+```{r, include = TRUE}
+full <- glm(spp.Birds ~ shrub + litter + forest.grad + anthro.grad, bird, family = gaussian)
+vif(full)
+```
+VIF with all makes it seem like litter has a little of collinearity, so let's attempt to remove that. 
+
+```{r, include = TRUE}
+newFull <- glm(spp.Birds ~ shrub + forest.grad + anthro.grad, bird, family = gaussian)
+vif(newFull)
+```
+
+VIF without leaf litter is much better and all values are below that 2 threshold. We will go without leaf litter in the analysis. 
+
+e) model assumptions and standard-ization of the variables 
+
+```{r, include = TRUE}
+## Convert percentages to proportions
+bird$shrub <- round(bird$shrub/100,2)
+bird$litter <- round(bird$litter/100,2)
+## Standardizing/normalizing all relevant explanatory variables. We will save these vec
+shrub.s <- scale(bird$shrub, center = TRUE, scale = TRUE)
+litter.s <- scale(bird$litter, center = TRUE, scale = TRUE)
+forest.grad.s <- scale(bird$forest.grad, center = TRUE, scale = TRUE)
+anthro.grad.s <- scale(bird$anthro.grad, center = TRUE, scale = TRUE)
+## Now let's add these scaled values to our Creeps dataframe
+bird$shrub.s <- as.numeric(shrub.s)
+bird$litter.s <- as.numeric(litter.s)
+
+bird$forest.grad.s <- as.numeric(forest.grad.s)
+bird$anthro.grad.s <- as.numeric(anthro.grad.s)
+## Now you should look at the dataframe to make sure it looks right!
+```
+
+```{r, include = TRUE}
+## fit the full additive model
+full <- glm(spp.Birds ~ shrub.s + litter.s + forest.grad.s + anthro.grad.s, data = bird, family = gaussian)
+
+summary(full)
+## look at basic model validation plots
+par(mfrow=c(2,2))
+plot(full)
+# now extract and explore the residuals
+par(mfrow=c(1,1))
+hist(resid(full),main="",xlab="Residuals")
+## You can even do this by each covariate!
+par(mfrow=c(2,2))
+plot(resid(full)~bird$shrub.s,pch=16,
+ylab="Residuals",xlab="Shrub Cover (%)")
+abline(h=0,col=2,lty=2)
+plot(resid(full)~bird$litter.s,pch=16,
+ylab="Residuals",xlab="Leaf litter cover (%)")
+abline(h=0,col=2,lty=2)
+plot(resid(full)~bird$forest.grad.s,pch=16,
+ylab="Residuals",xlab=expression("Forest graduation"))
+abline(h=0,col=2,lty=2)
+plot(resid(full)~bird$anthro.grad.s,pch=16,
+ylab="Residuals",xlab="Agriculture graduation")
+abline(h=0,col=2,lty=2)
+```
+
+After looking at the diagnostic plots, it would seem that the data tends to fit our assumptions. Residual plots are spread randomly and there isn't a strong pattern in any of them. For our full model, the QQ plot is mostly normal and residuals are looking good. There tends to be some outliers in the data; however, none of them go past Cook's distance.
+
+f. try to fit all possible additive models and use model selection
+
+```{r, include = TRUE}
+library(car)
+models <- list("null" = glm(spp.Birds~1, bird, family=gaussian),
+          "shrub" = glm(spp.Birds~shrub.s, bird, family=gaussian),
+          "leaf" = glm(spp.Birds~litter.s, bird, family=gaussian),
+          "anthro" = glm(spp.Birds~anthro.grad.s, bird, family=gaussian), 
+          "forest" = glm(spp.Birds~forest.grad.s, bird, family=gaussian), 
+          "all" = glm(spp.Birds~anthro.grad.s + forest.grad.s + shrub.s + litter.s, bird, family=gaussian), 
+          "shrub/leaf" = glm(spp.Birds~shrub.s + litter.s, bird, family=gaussian), 
+          "anthro/forest" = glm(spp.Birds~anthro.grad.s + forest.grad.s, bird, family=gaussian), 
+          "shrub/forest" = glm(spp.Birds~forest.grad.s + shrub.s, bird, family=gaussian),
+          "shrub/anthro" = glm(spp.Birds~anthro.grad.s + shrub.s, bird, family=gaussian),
+          "anthro/leaf" = glm(spp.Birds~anthro.grad.s + litter.s, bird, family=gaussian),
+          "forest/leaf" = glm(spp.Birds~forest.grad.s + litter.s, bird, family=gaussian), 
+          "forest/leaf/shrub" = glm(spp.Birds~forest.grad.s + shrub.s + litter.s, bird, family=gaussian), 
+          "leaf/shrub/anthro" = glm(spp.Birds~anthro.grad.s + shrub.s + litter.s, bird, family=gaussian), 
+          "shrub/anthro/forest" = glm(spp.Birds~anthro.grad.s + forest.grad.s + shrub.s, bird, family=gaussian), 
+          "anthro/forest/leaf" = glm(spp.Birds~anthro.grad.s + forest.grad.s + litter.s, bird, family=gaussian) 
+)
+
+aictab(models)
+               
+```
+
+After running an AIC table on all the possible models, it seems the anthro/forest model have the "best" fit for response variable. However, one could also make a case for the anthro model since it is less than 1 unit behind the first model. I will choose the anthro/forest model since I find both variables to be interesting to explain. 
+
+g)  and finally, model interpretation and prediction.
+
+```{r, include = TRUE}
+#using the model we found to be the "best" fit
+summary(models$`anthro/forest`)
+
+pred.df <- NULL
+
+anthro.grad.seq <- seq(min(bird$anthro.grad.s),max(bird$anthro.grad.s,0.05))
+forest.grad.mean <- mean(bird$forest.grad.s)
+# Vary anthro keep forest constant
+bird.df <- data.frame(anthro.grad.s = anthro.grad.seq, forest.grad.s = forest.grad.mean)
+# Predict relationship
+preds <- predict(models$`anthro/forest`, newdata=bird.df, se.fit = TRUE, type = "response")
+preds2 <- interval(models$`anthro/forest`,preds)
+pred.df <- data.frame(bird.df,preds2)
+
+#getting the mean and sd from the original scaling of each explanatory variable
+anthro.grad.mean <- attr(anthro.grad.s, which = "scaled:center")
+anthro.grad.sd <- attr(anthro.grad.s, which = "scaled:scale")
+forest.grad.mean <- attr(forest.grad.s, which = "scaled:center")
+forest.grad.sd <- attr(forest.grad.s, which = "scaled:scale")
+
+pred.df$anthro.grad <- (pred.df$anthro.grad.s*anthro.grad.sd)+anthro.grad.mean
+pred.df$forest.grad <- (pred.df$forest.grad.s*forest.grad.sd)+forest.grad.mean
+# Now lets plot the transformed data using ggplot
+ggplot(pred.df,aes(x=anthro.grad,y=fit))+
+geom_line() +
+geom_ribbon(data = pred.df, aes(ymin = pi.low, ymax = pi.hi),
+alpha = 0.1) +
+geom_ribbon(data = pred.df, aes(ymin = ci.low, ymax = ci.hi),
+alpha = 0.2) +
+theme_minimal() + ylab("Number of Species") +
+xlab("Anthro Graduation") +
+theme(panel.border = element_rect(colour = "black",fill=NA),
+legend.position = "none")
+
+#OPPOSITE
+
+pred.df <- NULL
+
+forest.grad.seq <- seq(min(bird$forest.grad.s),max(bird$forest.grad.s,0.05))
+anthro.grad.mean <- mean(bird$anthro.grad.s)
+# Vary anthro keep forest constant
+bird.df <- data.frame(forest.grad.s = forest.grad.seq, anthro.grad.s = anthro.grad.mean)
+# Predict relationship
+preds <- predict(models$`anthro/forest`, newdata=bird.df, se.fit = TRUE, type = "response")
+preds2 <- interval(models$`anthro/forest`,preds)
+pred.df <- data.frame(bird.df,preds2)
+
+#getting the mean and sd from the original scaling of each explanatory variable
+forest.grad.mean <- attr(anthro.grad.s, which = "scaled:center")
+forest.grad.sd <- attr(anthro.grad.s, which = "scaled:scale")
+anthro.grad.mean <- attr(anthro.grad.s, which = "scaled:center")
+anthro.grad.sd <- attr(anthro.grad.s, which = "scaled:scale")
+
+pred.df$forest.grad <- (pred.df$forest.grad.s*forest.grad.sd)+forest.grad.mean
+pred.df$anthro.grad <- (pred.df$anthro.grad.s*anthro.grad.sd)+anthro.grad.mean
+# Now lets plot the transformed data using ggplot
+ggplot(pred.df,aes(x=forest.grad,y=fit))+
+geom_line() +
+geom_ribbon(data = pred.df, aes(ymin = pi.low, ymax = pi.hi),
+alpha = 0.1) +
+geom_ribbon(data = pred.df, aes(ymin = ci.low, ymax = ci.hi),
+alpha = 0.2) +
+theme_minimal() + ylab("Number of Species") +
+xlab("Forest Graduation") +
+theme(panel.border = element_rect(colour = "black",fill=NA),
+legend.position = "none")
+```
+We see from the model that as the number of species increases, the anthro graduation value becomes more positive. For every unit of anthro graduation increase we see an increase of about 1.8474 species. Meanwhile we could not find enough evidence that suggested a positive correlation between the forest graduation value and number of species. That makes sense because as land becomes human dominated we would expect to not find an increase in species. Meanwhile as lands become more urban dominated, this might allow for species that can survive in more urban areas; however, there may be a limit to the amount of species allowed in an urban environment. I would suggest to focus from limiting or moving away from agricultural dominated lands as they areas may decrease species count. Although the model suggests that urban areas tend to increase number of species, there may be a sharp decreases after a certain point for number of species. 
