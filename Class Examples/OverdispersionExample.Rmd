@@ -57,3 +57,7 @@ plot(m.pois.simRsid)
 ```
 
 Use DHARMa package because trying to compare GLM with link function looks at non transformed scale, but the package allows you to look at residuals that are transformed. 
+
+The first one is a QQplot, observered vs expected. Looking for a linear line. 
+
+Residuals vs predicted plot: a tiny bit of convergence but not terrible, hope is that each line (quartile lines) follow the dotted lines. 
