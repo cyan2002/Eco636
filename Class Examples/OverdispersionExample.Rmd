@@ -61,3 +61,37 @@ Use DHARMa package because trying to compare GLM with link function looks at non
 The first one is a QQplot, observered vs expected. Looking for a linear line. 
 
 Residuals vs predicted plot: a tiny bit of convergence but not terrible, hope is that each line (quartile lines) follow the dotted lines. 
+
+When plotting the residuals of the poisson GLM with NB data you see that "S" pattern in the qqplot and the residuals graph is not flat at all. 
+
+Over dispersed data (bad), residuals do not match poisson distribution, too much variation
+
+```{r}
+summary(m.pois)
+```
+
+When residual deviance is close to degreees of freedom it is close to one which is good! Deviance/degrees of freedom should equal 1 (P)
+
+```{r}
+summary(m.negbin)
+```
+
+Bad P value
+
+We can calculate the signficant of the overdispersion using dispersiontest() from libraer (AER)
+
+```{r}
+require(AER)
+dispersiontest(m.pois)
+dispersiontest(m.negbin)
+```
+
+Closer to one, the better the value. Value is signficantly overdispersion...
+
+```{r}
+mNB <- glm.nb(c.NB ~ X)
+dev <- summary(mNB)$deviance
+dof <- summary(mNB)$df.residual
+1-pchisq(dev, dof)
+summary(mNB)$deviance / summary(mNB)$df.residual
+```

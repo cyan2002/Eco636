@@ -1,0 +1,138 @@
+```{r}
+library(AICcmodavg)
+library(MuMIn)
+library(ggplot2)
+library(HH)
+source("multiplot.r")
+indigos <- read.table(file = "indigos.txt", header = TRUE)
+
+# Log-transform home range size
+indigos$logHR <- log(indigos$hr.size)
+# Scale the following columns in the `indigos` data set
+indigos$Sndays <- c(scale(indigos$ndays))
+indigos$Surban1.50 <- c(scale(indigos$urban1.50))
+indigos$Supland1.50 <- c(scale(indigos$upland1.50))
+indigos$Swetland1.50 <- c(scale(indigos$wetland1.50))
+# Create a list of 8 models
+models <- list(
+  "Null" = glm(logHR ~ sex + Sndays, indigos,family="gaussian"),
+  "Urb" = glm(logHR ~ sex + Sndays + Surban1.50, indigos, family="gaussian"),
+  "Up" = glm(logHR ~ sex + Sndays + Supland1.50, indigos, family="gaussian"),
+  "Wet" = glm(logHR ~ sex + Sndays + Swetland1.50, indigos,
+              family="gaussian"),
+  "Urb+Up" = glm(logHR ~ sex + Sndays + Surban1.50 + Supland1.50, indigos,
+                 family="gaussian"),
+  "Urb+Wet"= glm(logHR ~ sex + Sndays + Surban1.50 + Swetland1.50, indigos,
+                 family="gaussian"),
+  "Up+Wet" = glm(logHR ~ sex + Sndays + Supland1.50 + Swetland1.50, indigos,
+                 family="gaussian"),
+  "Urb+Up+Wet" = glm(logHR ~ sex + Sndays + Surban1.50 + Supland1.50 +
+                       Swetland1.50, indigos, family="gaussian"))
+
+aictab(models) # AICcmodavg function
+model.sel(models) # MuMIn function
+
+model.aiccs <- sapply(models,AICc)
+Weights(model.aiccs)
+
+size <- data.frame(size=c(1,3,5,10,25,70,80,90,100))
+mean(size$size)
+size$weight <- size$size/sum(size$size)
+sum(size$size*size$weight)
+
+l.hr <- rep(NA,8) # empty vector we will fill in
+df <- data.frame(sex = "MALE", # prediction for males
+Sndays = 0, # the n days
+Surban1.50 = 0, # the mean urban
+Supland1.50 = 0, # the mean upland
+Swetland1.50 = 0) # the mean wetland
+l.hr[1] <- predict(models[["Null"]], newdata=df)
+l.hr[2] <- predict(models[["Urb"]], newdata=df)
+l.hr[3] <- predict(models[["Up"]], newdata=df)
+l.hr[4] <- predict(models[["Wet"]], newdata=df)
+l.hr[5] <- predict(models[["Urb+Up"]], newdata=df)
+l.hr[6] <- predict(models[["Urb+Wet"]], newdata=df)
+l.hr[7] <- predict(models[["Up+Wet"]], newdata=df)
+l.hr[8] <- predict(models[["Urb+Up+Wet"]],newdata=df)
+#exponentiate to get back on to the 'real' scale
+HR <- exp(l.hr)
+pred.df <- data.frame(l.hr=l.hr, HR = HR)
+
+#Extract corresponding model weights for each prediction.
+pred.df$w <- aictab(models)$AICcWt
+# Calculate weighted mean home range size
+sum(pred.df$HR * pred.df$w)
+# Create a vector of equal weights
+pred.df$equ <- 1/8 # Column of equal weights
+sum(pred.df$HR * pred.df$equ) # Arithmetic mean home range size
+mean(pred.df$HR) # Arithmetic mean home range size
+
+modavgPred(models,newdata=df)
+
+df2 <- data.frame(Supland1.50 = rep(seq(min(indigos$Supland1.50),
+max(indigos$Supland1.50),
+length=50),2),
+sex = rep(c("MALE","FEMALE"),each=50),
+Sndays = mean(indigos$Sndays),
+Surban1.50 = mean(indigos$Surban1.50),
+Swetland1.50 = mean(indigos$Swetland1.50))
+MA_pred <- modavgPred(models,newdata=df2)
+
+#create intervals on the real scale
+df2$pred <- exp(MA_pred$mod.avg.pred)
+df2$LCI <- exp(MA_pred$lower.CL)
+df2$UCI <- exp(MA_pred$upper.CL)
+df2$Type <- "Model Averaged"
+top_data <- df2[,1:5]
+pred.values <- predict(models[["Urb+Up+Wet"]],
+newdata=top_data,
+se.fit=T)
+pred.values <- interval(models[["Urb+Up+Wet"]],pred.values)
+top_data$pred <- exp(pred.values[,"fit"])
+top_data$LCI <- exp(pred.values[,"ci.low"])
+top_data$UCI <- exp(pred.values[,"ci.hi"])
+top_data$Type <- "Top Model"
+new_data <- rbind(df2, top_data)
+
+names(models)
+aictab(models)
+wi <- Weights(AICc(models[[3]],models[[5]],models[[7]],models[[8]]))
+betai <- c(coef(models[[3]])['Supland1.50'],coef(models[[5]])['Supland1.50'],
+coef(models[[7]])['Supland1.50'],coef(models[[8]])['Supland1.50'])
+betai
+(MA_beta <- sum(wi * betai)) # Model-averaged estimate
+coef(models[[7]])['Supland1.50'] # Top-ranked model estimate
+coef(models[[5]])['Supland1.50'] # Second-ranked model estimate
+
+names(models)
+aictab(models)
+wi <- Weights(AICc(models[[3]],models[[5]],models[[7]],models[[8]]))
+betai <- c(coef(models[[3]])['Supland1.50'],coef(models[[5]])['Supland1.50'],
+coef(models[[7]])['Supland1.50'],coef(models[[8]])['Supland1.50'])
+vari <- c(vcov(models[[3]])['Supland1.50','Supland1.50'],
+vcov(models[[5]])['Supland1.50','Supland1.50'],
+vcov(models[[7]])['Supland1.50','Supland1.50'],
+vcov(models[[8]])['Supland1.50','Supland1.50'])
+#model averaged SE's
+model_var <- (betai - sum(betai * wi))^2 # Var from model uncertainty
+MA_SE <- sqrt(sum(wi * (vari + model_var))) # Model-averaged SE
+MA_beta - (1.96*MA_SE)
+MA_beta + (1.96*MA_SE)
+#top model SE's
+SE <- sqrt(vcov(models[[8]])['Supland1.50','Supland1.50']) # global SE
+coef(models[[8]])['Supland1.50'] - (1.96*SE)
+coef(models[[8]])['Supland1.50'] + (1.96*SE)
+
+MAupland <- modavg(models,"Supland1.50")
+MAupland
+
+modavg(models,"Swetland1.50")
+modavgShrink(models,"Swetland1.50")
+
+model.avg(models)
+summary(model.avg(models))
+
+aictab(models)
+AICcmodavg::importance(models, parm="Surban1.50") # AICcmodavg
+MuMIn::importance(models) # MuMIn
+```
