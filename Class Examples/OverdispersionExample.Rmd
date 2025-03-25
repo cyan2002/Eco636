@@ -95,3 +95,16 @@ dof <- summary(mNB)$df.residual
 1-pchisq(dev, dof)
 summary(mNB)$deviance / summary(mNB)$df.residual
 ```
+
+Chisquared - how well your model fits, dispersion parameter, closer to one which is good, model fits residuals, looking good!
+
+```{r}
+aic.df <- data.frame(Model = c("Pois", "negBin"),
+  AIC = c(AIC(m.pois), AIC(mNB)),
+  dAIC = c(AIC(m.pois), AIC(mNB)) - min(c(AIC(m.pois), AIC(mNB))))
+(aic.df <- aic.df[order(aic.df$AIC),])
+```
+
+```{r}
+
+```

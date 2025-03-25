@@ -1,0 +1,76 @@
+```{r}
+rn <- c(-100, -2, 0, 2, 100)
+logit.rn <- exp(rn) / (1 + exp(rn))
+
+logit.rn
+```
+
+All numbers are between 0 and 1, negative numbers in rn are less than 0.5 in logit.rn
+Positive numbers in rn are greater than 0.5 in logit.rn. The logit transform 0 is exactly 0.5
+
+going from linear predictor scale to our probabilities of 1
+
+
+Simulating Coin Flips!
+```{r}
+set.seed(123)
+heads <- rbinom(n = 10, size = 1, prob = 0.5)
+
+table(heads)
+```
+
+Getting 100 flips now!
+
+```{r}
+heads <- rbinom(n = 100, size = 1, prob = 0.5)
+
+table(heads)
+```
+
+```{r}
+mFlip <- glm(heads ~ 1, family = binomial)
+summary(mFlip)$coefficients
+```
+
+```{r}
+exp(coef(mFlip)[1] / (1+exp(coef(mFlip)[1])))
+
+require(boot)
+inv.logit(coef(mFlip)[1])
+```
+
+Vernal pool in different forest example
+```{r}
+set.seed(123)
+pools.per.site <- 50
+occ1 <- rbinom(n = pools.per.site, size = 1, prob = 0.2) #~20% occupied
+occ2 <- rbinom(n = pools.per.site, size = 1, prob = 0.3) #~30% occupied
+occ3 <- rbinom(n = pools.per.site, size = 1, prob = 0.6) #~60% occupied
+occ4 <- rbinom(n = pools.per.site, size = 1, prob = 0.8) #~80% occupied
+occ <- c(occ1, occ2, occ3, occ4)
+wood <- factor(rep(1:4, each=50))
+
+table(wood, occ)
+```
+
+finding differences across multiple groups but with biomial data (only 0s and 1s) -> binomial ANOVA!
+
+```{r}
+m.null <- glm(occ ~ 1, family = binomial)
+m.wood <- glm(occ ~ wood, family = binomial)
+
+summary(m.null)$coefficients
+unique(predict(m.null, type = "response"))
+
+summary(m.wood)$coefficients
+unique(predict(m.wood, type = "response"))
+```
+
+Remember conversion at the start, so any number near 0 is at 50%. So when we use the unique -> this is the inverse link function which shows us that 0 gives us around a probability of 50%. The null model is occupancy is 50% around all no differences. 
+
+For m.wood model, intercept is wood1 (first reference group, alphanumerically). The estimate is the mean occupancy for the linear predictor scale for woodland 1. Since the number is negative, we should expect the occupancy to be less than 0.5. Still looking at the constrast numbers, so wood2 is actually -0.9 but still have less of a probability than 0.5. 
+
+```{r}
+require(AICcmodavg)
+aictab(list(m.null, m.wood), modnames = c("Null", "Wood"))
+```

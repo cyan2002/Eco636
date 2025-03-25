@@ -4,6 +4,8 @@ editor_options:
     wrap: 72
 ---
 
+Poisson distribution and Negative Binomial example
+
 ```{r, include = TRUE}
 crab <- read.table("crabs.txt", h=T)
 ```
@@ -121,6 +123,14 @@ o?
 value of management interest?
 Others?
 
+```{r}
+require(DHARMa)
+resids2 <- simulateResiduals(m5)
+plot(resids2)
+```
+
+Bad plot! S curve is bad and lines on the right plot are curved. 
+
 ```{r, include = TRUE}
 AirTemps = seq(min(crab$AirTemp), max(crab$AirTemp), length=300)
 Sites <- levels(as.factor(crab$Site))
@@ -146,3 +156,72 @@ ggplot(pred.df2, aes(x = AirTemp, y = fit, color = Site, fill = Site)) +
 
 Why do we fix values?
 
+```{r}
+require(MASS)
+m.null <- glm.nb(Crabs ~ 1, data = crab)
+m.nb1 <- glm.nb(Crabs ~ Site, data = crab)
+m.nb2 <- glm.nb(Crabs ~ Site + AirTemp, data = crab)
+m.nb3 <- glm.nb(Crabs ~ Site + AirTemp + AirTemp2, data = crab)
+m.nb4 <- glm.nb(Crabs ~ AirTemp, data = crab)
+m.nb5 <- glm.nb(Crabs ~ AirTemp + AirTemp2, data = crab)
+
+m.list <- list(
+  "null" = m.null,
+  "nb1" = m.nb1,
+  "nb2" = m.nb2,
+  "nb3" = m.nb3,
+  "nb4" = m.nb4,
+  "nb5" = m.nb5
+)
+
+aictab(m.list)
+
+summary(m.list$nb3)
+```
+
+Cannot use regular QQ plot anymore for negative binomial, need to use a different diagonistc plot. Looking for NOT an S shape. Lines on the right should be straight (accounting for 0). If we see curves in the line -> over dispersion (typically too many 0s). A tiny bit of patterning in residual vs predicted, but too much.
+
+```{r}
+require(DHARMa)
+resids2 <- simulateResiduals(m.nb3)
+plot(resids2)
+```
+
+```{r, include = TRUE}
+AirTemps = seq(min(crab$AirTemp), max(crab$AirTemp), length=300)
+Sites <- levels(as.factor(crab$Site))
+
+pred.df3 <- expand.grid(Site = Sites, AirTemp = AirTemps)
+pred.df3$AirTemp2 <- pred.df2$AirTemp^2
+pred3 <- predict(m.nb3, newdata = pred.df3, se.fit = TRUE, type = "response")
+pred.df3$fit <- pred3$fit
+pred.df3$se.fit <- pred3$se.fit
+
+# make CI (by hand since package not working well)
+pred.df3$resp.lo <- pred.df3$fit - 1.96*pred.df3$se.fit
+pred.df3$resp.hi <- pred.df3$fit + 1.96*pred.df3$se.fit
+
+ggplot(pred.df3, aes(x = AirTemp, y = fit, color = Site, fill = Site)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=resp.lo, ymax=resp.hi), alpha=0.1, colour = NA) +
+  geom_point(data=crab, aes(x = AirTemp, y = Crabs), size = 2, alpha = 0.4) +
+  ylab("Probability of presence") +
+  xlab("Temp (C)") +
+  theme_classic()
+```
+
+One of the problems with using the wrong model, your standard errors become very low. Which is why the the standard error on the "correct" model here, the standard errors are larger. 
+
+```{r}
+m.best <- m.list$nb3
+summary(m.best)
+
+#deviance and degrees of freedom
+dev <- summary(m.best)$deviance     # deviance
+dof <- summary(m.best)$df.residual  #residual deg. of freedom
+
+#Chi-square test (>0.05 indicates adequate fit)
+1 - pchisq(dev, dof)
+```
+
+Close to .05 which is fine, but meh. Can publish but should be noted. Possible that a 0 inflated model is what you want. 
