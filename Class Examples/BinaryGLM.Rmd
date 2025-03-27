@@ -1,0 +1,5 @@
+Using horseshoe crab data that is presence and absense data.
+
+```{r}
+crabs <- read.table("crabs.txt", h=T)
+```

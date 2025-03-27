@@ -1,0 +1,218 @@
+LAB 8 EXAMPLE
+```{r}
+X <- 1000 # number of samples
+mu <- 5 # population mean
+SD <- 2.5 # population standard deviation
+y <- rnorm(n = X, mean = mu, sd = SD) # simulate the data
+hist(y, col="lightblue", breaks=seq(-20,40,1)) # plot the data
+mean(y) # sample mean
+sd(y) # sample sd
+Nmod <- lm(y ~ 1)
+summary(Nmod)
+length(y[which(y < 0)]) # y < 0 returns T of F
+```
+
+```{r}
+n <- rpois(X, lambda = 5)
+sort(unique(n))
+table(n)
+hist(n, col="lightblue", breaks=seq(-20,40,1))
+length(n[which(n<0)])
+mean(n)
+var(n)
+```
+
+```{r}
+par(mfrow=c(3,3))
+means <- c(3,5,7,9,11,13,15,17,30)
+for(i in 1:length(means)){
+tmp.n <- rpois(500,means[i])
+hist(tmp.n, breaks=seq(0,50,1), border="lightblue", col="lightblue",
+xlim=c(0,50), ylim=c(0,120), main=paste("lambda = ",means[i]))
+}
+```
+
+```{r}
+Pmod <- lm(n ~ 1)
+summary(Pmod)
+par(mfrow=c(2,2))
+#residuals from a 'normal' model with 'normal' data
+clr <- adjustcolor(4,0.3)
+plot(resid(Nmod), main="Normal residuals", pch=16, col=clr)
+abline(h=0,lwd=2)
+qqnorm(resid(Nmod), main="Normal residuals", pch=16, col=clr)
+qqline(resid(Nmod), lwd=2)
+#residuals from a 'normal' model with 'non-normal' data
+clr <- adjustcolor(3,0.3)
+plot(resid(Pmod), main="Poisson residuals", pch=16, col=clr)
+abline(h=0,lwd=2)
+qqnorm(resid(Pmod),main="Poisson residuals", pch=16, col=clr)
+qqline(resid(Pmod), lwd=2)
+```
+
+```{r}
+library(DHARMa)
+simulated.resids.Pmod <- simulateResiduals(fittedModel = Pmod, n = 100)
+plot(simulated.resids.Pmod)
+```
+
+"With ecological data, and as we talked about in class, we often violate the assumption that
+variance equals the mean, in reality, the variance often exceeds the mean. Such data are
+said to be overdispersed. Overdispersion often happens when data are clumped or otherwise
+show lack of independence (think of data points taken close in space or time) and primarily
+acts to increase standard errors."
+
+NEGATIVE BINOMIAL DISTRIBUTION
+
+```{r}
+library(MASS)
+nb <- rnegbin(X, mu=5, theta=100)
+cc <- rpois(X, 5)
+sort(unique(nb))
+table(nb)
+length(nb[which(nb<0)])
+mean(nb)
+var(nb)
+#compare Poisson and Negative binomial
+hist(nb, col="lightblue", breaks=seq(-10,20,1),
+main="Negative Binomial, mu=5, k=100")
+hist(cc, col=adjustcolor("red",0.3), breaks=seq(-10,20,1),
+main="Poisson, lambda=5",add=T)
+```
+
+```{r}
+par(mfrow=c(1,2))
+theta <- c(100,10,1)
+for(i in 1:3){
+sim.nb <- rnegbin(X, mu=5, theta=theta[i])
+sim.p <- rpois(X, 5)
+mean(sim.nb)
+var(sim.nb)
+#compare Pois and Negbin
+hist(sim.nb, col="lightblue", breaks=seq(-10,40,1),
+main=paste("Negative Binomial, mu=5, k=",theta[i],sep=""))
+hist(sim.p, col=adjustcolor("red",0.3), breaks=seq(-10,40,1),
+main="Poisson, lambda=5",add=T)
+}
+```
+
+```{r}
+nb.1 <- rnegbin(X, mu=5, theta=1)
+NBmod <- lm(nb.1 ~ 1)
+summary(NBmod)
+par(mfrow=c(2,2))
+#residuals from a 'correct' model
+clr <- adjustcolor(4,0.3)
+plot(resid(Nmod), main="Normal residuals", pch=16, col=clr)
+abline(h=0,lwd=2)
+qqnorm(resid(Nmod), main="Normal residuals", pch=16, col=clr)
+qqline(resid(Nmod))
+#residuals from a 'mis-specified' model
+clr <- adjustcolor(3,0.3)
+plot(resid(NBmod), main="Negative binomial residuals", pch=16, col=clr)
+abline(h=0,lwd=2)
+qqnorm(resid(NBmod),main="Negative binomial residuals", pch=16, col=clr)
+qqline(resid(NBmod))
+```
+
+BINOMIAL DISTRIBUTION
+
+```{r}
+z <- rbinom(X, size=1, prob=0.5)
+sort(unique(z))
+table(z)
+length(z[which(z==0)]) # number of 0's
+length(z[which(z==1)]) # number of 1's
+mean(z) # proportion of ones (~p)
+par(mfrow=c(1,1))
+hist(z, breaks=seq(0,1,0.1), col="lightblue")
+```
+
+```{r}
+z2 <- rbinom(X,size=1,prob=0.8)
+sort(unique(z2))
+table(z2)
+hist(z2,breaks=seq(0,1,0.1),col="lightblue")
+```
+
+```{r}
+z3 <- rbinom(X, size=4, prob=0.5)
+sort(unique(z3))
+table(z3)
+hist(z3,breaks=seq(0,4,0.25),col="lightblue")
+```
+
+```{r}
+par(mfrow=c(3,3))
+trials <- c(1,3,6)
+p <- c(0.3,0.5,0.8)
+for(i in 1:length(trials)){
+for(j in 1:length(p)){
+tmp.z <- rbinom(500, trials[i], p[j])
+hist(tmp.z, breaks=seq(-0.5,6.5,1), col="lightblue", xlim=c(-1,7),right=F,
+ylim=c(0,400), main=paste("n = ",trials[i],"p = ",p[j]))
+}
+}
+```
+
+```{r}
+Bmod <- lm(z~1)
+summary(Bmod)
+par(mfrow=c(1,1))
+clr <- adjustcolor(4,0.3)
+qqnorm(resid(Bmod), pch=16, col=clr)
+qqline(resid(Bmod), lwd=2)
+```
+
+```{r}
+samples <- 100
+X <- runif(samples,0,100)
+b0 <- 0
+b1 <- 0.25
+SD <- 1.5
+par(mfrow=c(1,3))
+#simulate response variable (rv)
+rv.n <- rnorm(n=samples, mean= b0+b1*X, sd=SD)
+rv.p <- rpois(n=samples, lambda= b0+b1*X)
+rv.nb <- rnegbin(n=samples, mu= b0+b1*X, theta=1)
+#Plot the data
+plot(X, rv.n, xlim=c(-10,100), ylim=c(-10,50), pch=21, bg="lightblue",
+cex=1.5, main="Normal errors")
+abline(lm(rv.n~X), lwd=2, col="blue")
+abline(h=0, lwd=2)
+plot(X, rv.p, xlim=c(-10,100),ylim=c(-10,50), pch=21, bg="lightgreen",
+cex=1.5, main="Poisson errors")
+abline(lm(rv.p~X), lwd=2, col="darkgreen")
+abline(h=0, lwd=2)
+plot(X, rv.nb, xlim=c(-10,100), ylim=c(-10,50), pch=21, bg="yellow",
+cex=1.5, main="Negative binomial errors")
+abline(lm(rv.nb~X), lwd=2, col="orange")
+abline(h=0, lwd=2)
+```
+
+```{r}
+par(mfrow=c(3,2))
+# fit models
+Nmod <- lm(rv.n~X)
+Pmod <- lm(rv.p~X)
+NBmod <- lm(rv.nb~X)
+# check summaries
+summary(Nmod)
+summary(Pmod)
+summary(NBmod)
+# diagnostic plots
+plot(Nmod, 1:2, pch=21, cex=1.5, bg="lightblue")
+plot(Pmod,1:2, pch=21, cex=1.5, bg="lightgreen")
+plot(NBmod,1:2, cex=1.5,pch=21, bg="yellow")
+```
+
+```{r}
+log.rv.nb <- log(rv.nb + 0.1)
+logNBmod <- lm(log.rv.nb ~ X)
+predlogNB <- exp(predict(logNBmod))
+par(mfrow=c(1,1))
+hist(predlogNB, col="lightblue", breaks=seq(-20,150,2), ylim=c(0,40),main="")
+hist(rv.nb+0.1, col=adjustcolor(2,0.3), breaks=seq(-20,150,2), add=T)
+legend("topright", c("Predicted","Actual"), pch=15, pt.cex = 2, bty="n",
+col=c("lightblue",adjustcolor(2,0.3)))
+```
