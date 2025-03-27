@@ -1,5 +1,165 @@
-Using horseshoe crab data that is presence and absense data.
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+Using horseshoe crab data that is presence and absence data.
 
 ```{r}
 crabs <- read.table("crabs.txt", h=T)
+crabs$AirTemp2 <- crabs$AirTemp^2
+crabs$Binary <- ifelse(crabs$Crabs > 0, 1, 0)
 ```
+
+ifelse is an if else statement, where (statement, return value for if,
+return value for else)
+
+1.  State the question/hypothesis
+
+Can variation the probability of observing a crab at a site be explained
+by: -Site: does crab probability vary across sites - intercept
+differences -Temp: does crab probability of being present vary with
+temp - slope differences
+
+Data type: binary error distribution: binomial Binomial ANCOVA model
+
+2.  Data exploration
+
+```{r}
+head(crabs)
+require(ggplot2)
+require(GGally)
+ggpairs(crabs[,c("Site", "AirTemp", "Binary")])
+```
+
+Top left to bottom right graphs (thru line) represent number of
+observations for that variable (binary is probability of seeing a crab)
+
+```{r}
+ggplot(crabs, aes(x = AirTemp, y = Binary, colour = Site)) +
+  geom_jitter(size = 2, alpha = 0.4, position = position_jitter(height = 0.02)) +
+  stat_smooth(method = "loess", color = "blue") +
+  theme_light()
+```
+
+We might consider adding an x\^2 component because we see sort of a
+peak, but not 100%. We just may not have captured the high temperature
+range.
+
+3.  Describe the model
+
+Linear predictor: n~i~ = B~o~ + B~site~X~sitei~ + B~air~X~airi~ logit
+link binomial error distribution
+
+We can add a quadratic to see if it's meaningful.
+
+Linear predictor: n~i~ = B~o~ + B~site~X~sitei~ + B~air~X~airi~ +
+B~air2~X~air2i~
+
+Assumptions: Bionomial dtributions no error
+
+Check for collinearity
+
+```{r}
+require(car)
+m1 <- glm(Crabs ~ Site + AirTemp, data = crabs, family = poisson())
+vif(m1)
+```
+
+Below 2, which is good.
+
+4)  Fit the model
+
+```{r}
+require(AICcmodavg)
+fitList <- list(
+  "null"     = glm(Binary~1,                      data = crabs, family = binomial), #Null
+  "Site"     = glm(Binary~Site,                   data = crabs, family = binomial), #ANOVA
+  "Temp"     = glm(Binary~AirTemp,                data = crabs, family = binomial), #regression
+  "Temp2"    = glm(Binary~AirTemp+AirTemp2,       data = crabs, family = binomial), #mult. reg.
+  "SiteTemp" = glm(Binary~Site+AirTemp,           data = crabs, family = binomial), #ANCOVA
+  "SiteTemp2"= glm(Binary~Site+AirTemp+AirTemp2,  data = crabs, family = binomial)  #ANCOVA
+)
+
+aictab(fitList, modnames = names(fitList))
+```
+
+Both SiteTemp and Temp have very close results, typically you should
+choose the one with lower K (simplier model); however, we will use
+SiteTemp to understand site differences as well.
+
+5)  Evaluate the output
+
+```{r}
+m.best <- fitList[["SiteTemp"]]
+print(summary(m.best),show.residuals=TRUE)
+```
+
+Estimate Intercept is probability of presence of Crabs at Erika's when
+airtemp = 0. Next coefficients are constrasts (they are the intercepts).
+The Airtemp estimate is the slope for probability of crab based on one
+increment of airtemp.
+
+The Chi squared value was 0.61.
+
+Differences across sites are not too large, but there seems to be a
+relationship between airtemp and probability of crab presence.
+
+Let's look at temp since there are no signficant differences for sites
+
+```{r}
+m.best <- fitList[["Temp"]]
+print(summary(m.best),show.residuals=TRUE)
+```
+
+Different p value and different chi squared goodness of fit value
+(0.38). Chi squared goodness of fit may help describe how well you model
+fits, but not an exact 1 to 1 description.
+
+We can also use AUC (area under the curve). Another nice way of
+determining fit for presence or absence data. AUC is area under the ROC
+curve. ROC curve plots the true positive rate vs the flase positive
+rate. Ranges from 0 to 1, 1 being perfect classifier (predicted
+perfectly), 0 being wrong (poorly predicted)
+
+```{r}
+library(pROC)
+myroc <- roc(crabs$Binary, predict(m.best, crabs, type= "response"))
+plot(myroc)
+
+ggroc(myroc, legacy.axes = TRUE) + 
+  labs(x = "False-positive rates", y = "True-Positive Rate", title = "Simulated ROC curve for Temp model") + annotate("text", x = .5, y = .5, label = paste0("AUC: ", round(auc(myroc), digits = 2)))
+```
+
+Can use this to compare between different modles (close to 1 the
+better), null model should be 0.5.
+
+```{r}
+pred.df <- data.frame(AirTemp = seq(min(crabs$AirTemp), max(crabs$AirTemp), length=300))
+
+#predictions on the RESPONSE scale!
+pred <- predict(m.best, newdata = pred.df, se.fit = TRUE, type = "response")
+pred.df$fit <- pred$fit
+pred.df$se.fit <- pred$se.fit
+
+# make CI (by hand since package not working well)
+pred.df$resp.lo <- pred.df$fit - 1.96*pred.df$se.fit
+pred.df$resp.hi <- pred.df$fit + 1.96*pred.df$se.fit
+
+require(ggplot2)
+
+ggplot(pred.df, aes(x = AirTemp, y = fit)) + 
+  geom_line(color = "blue") + 
+  geom_ribbon(aes(ymin=resp.lo, ymax=resp.hi), fill = "blue", alpha=0.1) +
+  geom_jitter(data=crabs, aes(x = AirTemp, y = Binary), size = 2, alpha = 0.4, position = position_jitter(height = 0.02)) +
+  ylab("Probability of presence") +
+  xlab("Temp (C)") +
+  theme_classic()
+```
+
+6)  Interpret the Results
+
+Does not differ between sites, increases probability of crabs with
+temperature. No support for quadratic effect, which is not biologically
+reasonable (temperature cannot infinitely rise and number of crabs too)
