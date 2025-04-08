@@ -1,0 +1,218 @@
+# Lab 9 Assignment
+
+Name: Chance Yan
+
+Date: 4/3/25
+
+1)  State the Question/Hypothesis
+
+What environmental factors/influences affect Martin abundances?
+
+Null hypothesis: Martin abundance is random Hypothesis: Martin abundances should be impacted by factors such as elevation, snow penetration, snow depth, and trail type 2. Data exploration
+
+```{r}
+#loading libraries and appropriate data
+library(AICcmodavg)
+library(MuMIn)
+library(lattice)
+library(corrplot)
+library(car)
+library(ggplot2)
+library(HH)
+library(GGally)
+library(tidyverse)
+
+#downloading data frame
+counts <- read.csv("track.counts.csv",header=TRUE)
+str(counts)
+summary(counts)
+head(counts)
+
+#translating variables to z score to make it easier to compare
+counts$elevationz <- c(scale(counts$elevation))
+counts$penetratz <- c(scale(counts$penetrat))
+counts$depthz <- c(scale(counts$depth))
+```
+
+3.  Describe the model
+
+We'll use either a poisson distribution or negative binomial distribution. Since it is count data we might use binomial distribution to account for excess. We'll assume no collinearity for this model (which we will check).
+
+Now that we have our data, we'll look at the data to see if we can spot any patterns.
+
+```{r}
+backupCount <- counts
+counts = subset(counts, counts$mart != 55)
+
+(mean.mart <- mean(counts$mart))
+(var.mart <- var(counts$mart))
+
+(lam <- mean(counts$mart))
+(var.mart <- var(counts$mart))
+(exp <- dpois(0,lam))
+(obs <- mean(counts$mart==0))
+(thet <- lam^2 / (var.mart - lam))
+
+freq <- c(table(factor(counts$mart,levels=0:5)))
+observed <- with(counts, freq/sum(freq))
+expected.pois <- dpois(0:5, lambda=mean.mart) #poisson random variables
+expected.nb <- dnbinom(0:5, mu=mean.mart, size=thet) #negbin random variables
+# Plot the expected vs. the observed counts
+plot(x = 0:5, y = observed, pch=21, bg="red", cex=2, type="b",
+xlab="Counts", ylab="Proportion", bty="l", las=1)
+points(x = 0:5, y = expected.pois, pch=21, bg="blue", cex=2, type="b")
+points(x = 0:5, y = expected.nb, pch=21, bg="green", cex=2, type="b")
+legend("topright", c("Observed", "Expected Pois","Expected NB"), pch=21,
+pt.cex=2, bty="n", pt.bg=c("red","blue","green"))
+
+hist(counts$mart,breaks=seq(0,5,1),right=TRUE,freq=FALSE,
+col="lightgreen",main="", xlab="Counts of fox tracks")
+obs.seq <- 0:5
+emp.lam <- mean(counts$mart)
+lines(obs.seq, dpois(obs.seq, emp.lam), lwd=3, col="darkgreen")
+lines(obs.seq, dpois(obs.seq, 1), lwd=3, col="blue")
+lines(obs.seq, dpois(obs.seq, 0.5), lwd=3, col="red")
+legend("topright",c("Observed","mean=1","mean=0.5"), lwd=2,
+col=c("darkgreen","blue","red"), bty="n")
+
+#check if other explanatory variables were the effect
+covs <- c("elevationz", "penetratz", "depthz", "tt")
+ggpairs(counts[,covs],mapping = aes(color = tt))
+
+#check for x^2
+counts_l <- counts %>%
+select(mart, elevationz, penetratz, depthz) %>%
+pivot_longer(c(elevationz, penetratz, depthz), names_to = "measure_type",
+values_to = "stand_measure")
+ggplot(counts_l, aes(x = stand_measure, y = mart, colour = measure_type)) +
+geom_point() +
+geom_smooth() +
+facet_wrap(~ measure_type) +
+theme_bw()
+
+#collinearity screen
+library(psych)
+pairs.panels(counts[,c("elevationz","penetratz","depthz","tt")],
+scale=TRUE,density=FALSE,ellipses=FALSE, method="spearman")
+
+#VIF for collinearity
+library(car)
+vif(glm(mart ~ elevationz + penetratz + depthz + tt,
+data=counts, family="poisson"))
+```
+
+There seems to be a very high outlier (5) that is much greater than other observations. I'll remove the 55 for now as it makes it hard to see things. From the graphs we see that perhaps negative binomial is the correct distribution as it follows the data closely. There doesn't seem to be any relationship between the variables either based on the ggally plot. Nothing that really sticks out to me anyways... There might be an argument for elevation or penetration for an exponential relationship, but it also could be due to lack of data at the farther end. Finally we see no collinearity between the 3 different variables and can conclude it will meet that assumption.
+
+Going forward I will remove the 55 observation as I believe it to not be true to the dataset. Perhaps there was a mart going back and forth creating more trails in the same area. I expect this due to it's much larger number than the rest of the abundances.
+
+Now that we understand that there isn't collinearity and no exponential portion. Let's try modeling the data. We'll start with poisson and move to negative binomial.
+
+```{r}
+library(AER)
+Mpois <- glm(mart ~ elevationz + depthz + penetratz + tt,
+data=counts, family="poisson")
+
+# model fit - the Pearson Chi-square test (p<0.05 = significant lack of fit)
+1-pchisq(summary(Mpois)$deviance, summary(Mpois)$df.residual)
+# dispersion parameter - dev/dof should ~1
+(chat <- Mpois$deviance/Mpois$df.residual)
+# overdispersion - statistical test of H0: od=1
+library(AER)
+dispersiontest(Mpois)
+library(DHARMa)
+Mpois.resids <- simulateResiduals(Mpois)
+plot(Mpois.resids)
+
+#modelling to negative binomial
+library(MASS)
+Mnb <- glm.nb(mart ~ elevationz + depthz + penetratz + tt, data=counts)
+summary(Mnb)
+# model fit - the Pearson Chi-square test (p<0.05 = signoficant lack of fit)
+1-pchisq(summary(Mnb)$deviance, summary(Mnb)$df.residual)
+# dispersion parameter - dev/dof approximation should ~1
+(chat <- Mnb$deviance/Mnb$df.residual)
+Mnb.resids <- simulateResiduals(Mnb)
+plot(Mnb.resids)
+```
+
+Ok totally not what I expected... Both models preform well. Looking at the graph on the right; however, for the poisson distribution it seems to be a little cleaner than for the count model. I guess it makes sense given that when I originally graphed the negative binomial and poisson expected values they both weren't far off from the observed values. (I had thought though the negative binomial fit more, but math proved me wrong)
+
+4)  Fit the model
+
+Let's create the model and compare using AIC
+
+```{r}
+fitList <- list(
+"m.full" = glm(mart ~ elevationz + depthz + penetratz + tt, data=counts, family="poisson"),
+"m.edp" = glm(mart ~ elevationz + depthz + penetratz, data=counts, family="poisson"),
+"m.edtt" = glm(mart ~ elevationz + depthz + tt, data=counts, family="poisson"),
+"m.eptt" = glm(mart ~ elevationz + penetratz + tt, data=counts, family="poisson"),
+"m.dptt" = glm(mart ~ depthz + penetratz + tt, data=counts, family="poisson"),
+"m.ed" = glm(mart ~ elevationz + depthz, data=counts, family="poisson"),
+"m.ep" = glm(mart ~ elevationz + penetratz, data=counts, family="poisson"),
+"m.ett" = glm(mart ~ elevationz + tt, data=counts, family="poisson"),
+"m.dp" = glm(mart ~ depthz + penetratz, data=counts, family="poisson"),
+"m.dtt" = glm(mart ~ depthz + tt, data=counts, family="poisson"),
+"m.ptt" = glm(mart ~ penetratz + tt, data=counts, family="poisson"),
+"m.e" = glm(mart ~ elevationz, data=counts, family="poisson"),
+"m.d" = glm(mart ~ depthz, data=counts, family="poisson"),
+"m.p" = glm(mart ~ penetratz, data=counts, family="poisson"),
+"m.tt" = glm(mart ~ tt, data=counts, family="poisson"),
+"m.0" = glm(mart ~ 1, data=counts, family="poisson")
+)
+aictab(fitList)
+```
+
+The top two models are very close, but I'm more inclined to choose the m.ptt model as it has less variables. Moving on to testing if this model is a good fit.
+
+5)  Evaluate the output
+
+```{r}
+b.mod <- glm(mart ~ penetratz + tt, data=counts, family="poisson")
+summary(b.mod)
+        
+library(AER)
+
+# model fit - the Pearson Chi-square test (p<0.05 = significant lack of fit)
+1-pchisq(summary(b.mod)$deviance, summary(b.mod)$df.residual)
+# dispersion parameter - dev/dof should ~1
+(chat <- b.mod$deviance/b.mod$df.residual)
+# overdispersion - statistical test of H0: od=1
+library(AER)
+dispersiontest(b.mod)
+library(DHARMa)
+b.mod.resids <- simulateResiduals(b.mod)
+plot(b.mod)
+```
+
+The model is alright looking... Most points are random and nothing goes above the residuals vs leverage graph. The QQ plot is a bit shaky, but we'll live.
+
+Time to visualize our results
+
+6)  Interpret the Results
+
+```{r}
+df.predict <- expand.grid(
+penetratz = seq(min(counts$penetratz), max(counts$penetratz), length=100),
+tt = unique(counts$tt)
+)
+# predict on the response scale
+df.pred <- cbind(df.predict, predict(b.mod, newdata = df.predict,
+type = "response", se = TRUE))
+head(df.pred)
+remove(df.predict)
+df.pred$ci.lo <- df.pred$fit - 1.96*df.pred$se.fit
+df.pred$ci.hi <- df.pred$fit + 1.96*df.pred$se.fit
+# unscale our explanatory variables
+df.pred$penetrat <- (df.pred$penetratz*sd(counts$penetrat,na.rm = TRUE)) +
+mean(counts$penetrat,na.rm = TRUE)
+# plot!
+ggplot(df.pred, aes(x = penetrat, y = fit, colour = tt, fill = tt)) +
+geom_line() +
+geom_ribbon(data = df.pred, aes(ymin = ci.lo, ymax = ci.hi),
+alpha = 0.2) +
+xlab("Penetrate (cm)") + ylab("Predicted mart track counts") +
+theme_classic()
+```
+
+Looking at the graph and interpreting the results from the model, we can infer that martin count will be higher on hiking roads and snowmobile roads than actual roads which makes sense!!! (phew). If they preform better on deeper snow than it makes sense that areas where they plow and keep open year around (shallow or no snow) are also areas where martins cannot preform well and therefore will not be found there. The model also showed that snow penetrations did not play a huge role road trails, but seemingly higher counts for hiking and road trails which also lines up with what we know about Martins.

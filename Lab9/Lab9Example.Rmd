@@ -1,0 +1,167 @@
+```{r}
+library(AICcmodavg)
+library(MuMIn)
+library(lattice)
+library(corrplot)
+library(car)
+library(ggplot2)
+library(HH)
+library(GGally)
+library(tidyverse)
+
+counts <- read.csv("track.counts.csv",header=TRUE)
+str(counts)
+summary(counts)
+head(counts)
+
+counts$elevationz <- c(scale(counts$elevation))
+counts$penetratz <- c(scale(counts$penetrat))
+counts$depthz <- c(scale(counts$depth))
+
+(mean.fx <- mean(counts$fx))
+(var.fx <- var(counts$fx))
+
+(lam <- mean(counts$fx))
+(var.fx <- var(counts$fx))
+(exp <- dpois(0,lam))
+(obs <- mean(counts$fx==0))
+(thet <- lam^2 / (var.fx - lam))
+```
+
+```{r}
+freq <- c(table(factor(counts$fx,levels=0:12)))
+observed <- with(counts, freq/sum(freq))
+expected.pois <- dpois(0:12, lambda=mean.fx) #poisson random variables
+expected.nb <- dnbinom(0:12, mu=mean.fx, size=thet) #negbin random variables
+# Plot the expected vs. the observed counts
+plot(x = 0:12, y = observed, pch=21, bg="red", cex=2, type="b",
+xlab="Counts", ylab="Proportion", bty="l", las=1)
+points(x = 0:12, y = expected.pois, pch=21, bg="blue", cex=2, type="b")
+points(x = 0:12, y = expected.nb, pch=21, bg="green", cex=2, type="b")
+legend("topright", c("Observed", "Expected Pois","Expected NB"), pch=21,
+pt.cex=2, bty="n", pt.bg=c("red","blue","green"))
+
+hist(counts$fx,breaks=seq(0,12,1),right=TRUE,freq=FALSE,
+col="lightgreen",main="", xlab="Counts of fox tracks")
+obs.seq <- 0:12
+emp.lam <- mean(counts$fx)
+lines(obs.seq, dpois(obs.seq, emp.lam), lwd=3, col="darkgreen")
+lines(obs.seq, dpois(obs.seq, 1), lwd=3, col="blue")
+lines(obs.seq, dpois(obs.seq, 0.5), lwd=3, col="red")
+legend("topright",c("Observed","mean=1","mean=0.5"), lwd=2,
+col=c("darkgreen","blue","red"), bty="n")
+
+#check if other explanatory variables were the effect
+covs <- c("elevationz", "penetratz", "depthz", "tt")
+ggpairs(counts[,covs],mapping = aes(color = tt))
+
+#check for x^2
+counts_l <- counts %>%
+select(fx, elevationz, penetratz, depthz) %>%
+pivot_longer(c(elevationz, penetratz, depthz), names_to = "measure_type",
+values_to = "stand_measure")
+ggplot(counts_l, aes(x = stand_measure, y = fx, colour = measure_type)) +
+geom_point() +
+geom_smooth() +
+facet_wrap(~ measure_type) +
+theme_bw()
+
+#collinearity screen
+library(psych)
+pairs.panels(counts[,c("elevationz","penetratz","depthz","tt")],
+scale=TRUE,density=FALSE,ellipses=FALSE, method="spearman")
+
+#VIF for collinearity
+library(car)
+vif(glm(fx ~ elevationz + penetratz + depthz + tt,
+data=counts, family="poisson"))
+```
+Modeling the Data now
+```{r}
+library(AER)
+Mpois <- glm(fx ~ elevationz + depthz + penetratz + tt,
+data=counts, family="poisson")
+
+# model fit - the Pearson Chi-square test (p<0.05 = significant lack of fit)
+1-pchisq(summary(Mpois)$deviance, summary(Mpois)$df.residual)
+# dispersion parameter - dev/dof should ~1
+(chat <- Mpois$deviance/Mpois$df.residual)
+# overdispersion - statistical test of H0: od=1
+library(AER)
+dispersiontest(Mpois)
+library(DHARMa)
+Mpois.resids <- simulateResiduals(Mpois)
+plot(Mpois.resids)
+
+#modelling to negative binomial
+library(MASS)
+Mnb <- glm.nb(fx ~ elevationz + depthz + penetratz + tt, data=counts)
+summary(Mnb)
+# model fit - the Pearson Chi-square test (p<0.05 = signoficant lack of fit)
+1-pchisq(summary(Mnb)$deviance, summary(Mnb)$df.residual)
+# dispersion parameter - dev/dof approximation should ~1
+(chat <- Mnb$deviance/Mnb$df.residual)
+Mnb.resids <- simulateResiduals(Mnb)
+plot(Mnb.resids)
+```
+Bad values all around... And graphs too
+
+Much better with negative binomial
+
+```{r}
+fitList <- list(
+"m.full" = glm.nb(fx ~ elevationz + depthz + penetratz + tt, data=counts),
+"m.edp" = glm.nb(fx ~ elevationz + depthz + penetratz, data=counts),
+"m.edtt" = glm.nb(fx ~ elevationz + depthz + tt, data=counts),
+"m.eptt" = glm.nb(fx ~ elevationz + penetratz + tt, data=counts),
+"m.dptt" = glm.nb(fx ~ depthz + penetratz + tt, data=counts),
+"m.ed" = glm.nb(fx ~ elevationz + depthz, data=counts),
+"m.ep" = glm.nb(fx ~ elevationz + penetratz, data=counts),
+"m.ett" = glm.nb(fx ~ elevationz + tt, data=counts),
+"m.dp" = glm.nb(fx ~ depthz + penetratz, data=counts),
+"m.dtt" = glm.nb(fx ~ depthz + tt, data=counts),
+"m.ptt" = glm.nb(fx ~ penetratz + tt, data=counts),
+"m.e" = glm.nb(fx ~ elevationz, data=counts),
+"m.d" = glm.nb(fx ~ depthz, data=counts),
+"m.p" = glm.nb(fx ~ penetratz, data=counts),
+"m.tt" = glm.nb(fx ~ tt, data=counts),
+"m.0" = glm.nb(fx ~ 1, data=counts)
+)
+aictab(fitList)
+
+m.full <- glm.nb(fx ~ elevationz + depthz + penetratz + tt,
+data=counts, na.action = "na.fail")
+dredge(m.full, rank = "AIC")
+```
+
+
+Visualizing our model
+```{r}
+df.predict <- expand.grid(
+depthz = seq(min(counts$depthz), max(counts$depthz), length=100),
+elevationz = mean(counts$elevationz),
+penetratz = mean(counts$penetratz),
+tt = unique(counts$tt)
+)
+# predict on the response scale
+df.pred <- cbind(df.predict, predict(m.full, newdata = df.predict,
+type = "response", se = TRUE))
+head(df.pred)
+remove(df.predict)
+df.pred$ci.lo <- df.pred$fit - 1.96*df.pred$se.fit
+df.pred$ci.hi <- df.pred$fit + 1.96*df.pred$se.fit
+# unscale our explanatory variables
+df.pred$depth <- (df.pred$depthz*sd(counts$depth,na.rm = TRUE)) +
+mean(counts$depth,na.rm = TRUE)
+df.pred$elevation <- (df.pred$elevationz*sd(counts$elevation,na.rm = TRUE)) +
+mean(counts$elevation,na.rm = TRUE)
+df.pred$penetrat <- (df.pred$penetratz*sd(counts$penetrat,na.rm = TRUE)) +
+mean(counts$penetrat,na.rm = TRUE)
+# plot!
+ggplot(df.pred, aes(x = depth, y = fit, colour = tt, fill = tt)) +
+geom_line() +
+geom_ribbon(data = df.pred, aes(ymin = ci.lo, ymax = ci.hi),
+alpha = 0.2) +
+xlab("Snow depth (cm)") + ylab("Predicted fox track counts") +
+theme_classic()
+```

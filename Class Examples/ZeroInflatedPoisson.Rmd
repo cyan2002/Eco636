@@ -1,0 +1,45 @@
+Class examples of Zero-Inflated Poisson
+
+```{r, include = TRUE}
+set.seed(123)
+n <- 100
+pr.occ <- 0.6
+lambda <- 3
+occ <- rbinom(n, 1, pr.occ)   #similate occpuancy -60 ls
+abund <- rpois(n, lambda*occ) #ZI counts
+table(abund)/n
+```
+
+If we graphed this, there are too many zeros! we have to find the ones from binary and poisson and sepparate them.
+
+```{r}
+library(pscl)
+zip <- zeroinfl(abund ~ 1 | 1, dist = "poisson")
+summary(zip)[[1]]
+
+exp(zip$coefficients$count) #mean abundance
+plogis(zip$coefficients$zero) #probability of structural zeros
+```
+
+Left side is model for counts, right side is the excess zeros. Above is null model for both. Numbers match up well. 
+
+What if we suspect zero-inflation and overdispersion?
+
+```{r}
+zinb <- zeroinfl(abund ~ 1 | 1, dist = "negbin")
+summary(zinb)
+
+exp(zinb$coefficients$count) #mean abundance
+plogis(zinb$coefficients$zero) #probability of structural zeros
+```
+
+We now have a log theta term now... Theta is our dispersion factor. Negative binomial has an additional factor. Very similar to our ZIP model, how do we decide which is better? Model selection!
+
+Comparing models: ZI models are still GLMs therefore we can compare using AIC.
+
+```{r}
+library(AICcmodavg)
+aictab(list(zip, zinb), modnames = c("ZIP", "ZINB"))
+```
+
+The ZIP is better because ZINB has an extra term (theta) that is accounted for. 

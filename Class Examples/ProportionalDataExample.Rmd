@@ -1,0 +1,52 @@
+Class example using propotional Data
+
+```{r}
+set.seed(123)
+
+#simulate 50 10-trial coin flips with pr(heads) = 0.5
+heads <- rbinom(n = 50, size = 10, prob = 0.5)
+heads
+table(heads)
+hist(heads, col = "darkseagreen1")
+
+#simulate 10,000 10-trial coin flips with pr(heads) = 0.5
+heads <- rbinom(n = 10000, size = 10, prob = 0.5)
+heads
+table(heads)
+hist(heads, col = "darkseagreen1")
+```
+
+Take more samples, get closer to the true mean
+
+Two types of data can be given, amount of sucesses or failures OR proportional data
+
+```{r}
+p <- 0.25 #per trial success probability
+trials <- 10 #trials
+samples <- 50
+
+y <- rbinom(samples, trials, p) #binomial random variables
+y.prop <- y/trials #raw proportions
+y.mat <- cbind(success = y, failure = trials-y) #cbind(success, failures)
+
+library(boot)
+
+#proportion approach (y.prop)
+prop <- glm(y.prop ~ 1, family = binomial)
+summary(prop)$coefficients
+
+inv.logit(summary(prop)$coefficients[1])
+
+#success/failure approach (y.mat)
+mat <- glm(y.mat ~ 1, family = binomial)
+summary(mat)$coefficients
+
+inv.logit(summary(mat)$coefficients[1])
+```
+Estimates are the same, which is good! Coefficients should be the same. average probability of success is close to our probability which is good! The standard error is different though. Trial size is explicit. 1/2 is not the same as 1000/2000. More confidence with larger trial size (therefore it's better to use trial size)
+
+What happens when you have 3 or more possible responses?
+-Choices A B C, never sometimes always
+
+If your choices aren't ordered -> multinomial logistic regression
+If your choices are ordered -> ordinal logistic regression
