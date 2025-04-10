@@ -35,13 +35,27 @@ m.nb3 <- glm.nb(Crabs ~ Site + AirTemp + AirTemp2, data = crabs)
 m.nb4 <- glm.nb(Crabs ~ AirTemp, data = crabs)
 m.nb5 <- glm.nb(Crabs ~ AirTemp + AirTemp2, data = crabs)
 
-# ZIP
+# ZIP nulls
 m.zip1 <- zeroinfl(Crabs ~ Site | 1, data = crabs, dist = "poisson", link = "logit")
 m.zip2 <- zeroinfl(Crabs ~ Site + AirTemp | 1, data = crabs, dist = "poisson", link = "logit")
 m.zip3 <- zeroinfl(Crabs ~ Site + AirTemp + AirTemp2 | 1, data = crabs, dist = "poisson", link = "logit")
 m.zip4 <- zeroinfl(Crabs ~ AirTemp | 1, data = crabs, dist = "poisson", link = "logit")
 m.zip5 <- zeroinfl(Crabs ~ AirTemp + AirTemp2 | 1, data = crabs, dist = "poisson", link = "logit")
-m.zip6 <- zeroinfl(Crabs ~ Site | AirTemp, data = crabs, dist = "poisson", link = "logit")
+m.zip6 <- zeroinfl(Crabs ~ Site | 1, data = crabs, dist = "poisson", link = "logit")
+
+m.zip7 <- zeroinfl(Crabs ~ Site | Site, data = crabs, dist = "poisson", link = "logit")
+m.zip8 <- zeroinfl(Crabs ~ Site + AirTemp | Site, data = crabs, dist = "poisson", link = "logit")
+m.zip9 <- zeroinfl(Crabs ~ Site + AirTemp + AirTemp2 | Site, data = crabs, dist = "poisson", link = "logit")
+m.zip10 <- zeroinfl(Crabs ~ AirTemp | Site, data = crabs, dist = "poisson", link = "logit")
+m.zip11 <- zeroinfl(Crabs ~ AirTemp + AirTemp2 | Site, data = crabs, dist = "poisson", link = "logit")
+m.zip12 <- zeroinfl(Crabs ~ Site | Site, data = crabs, dist = "poisson", link = "logit")
+
+m.zip13 <- zeroinfl(Crabs ~ Site | AirTemp, data = crabs, dist = "poisson", link = "logit")
+m.zip14 <- zeroinfl(Crabs ~ Site + AirTemp | AirTemp,, data = crabs, dist = "poisson", link = "logit")
+m.zip15 <- zeroinfl(Crabs ~ Site + AirTemp + AirTemp2 | AirTemp,, data = crabs, dist = "poisson", link = "logit")
+m.zip16 <- zeroinfl(Crabs ~ AirTemp | AirTemp,, data = crabs, dist = "poisson", link = "logit")
+m.zip17 <- zeroinfl(Crabs ~ AirTemp + AirTemp2 | AirTemp,, data = crabs, dist = "poisson", link = "logit")
+m.zip18 <- zeroinfl(Crabs ~ Site | AirTemp,, data = crabs, dist = "poisson", link = "logit")
 
 # ZINB
 m.zinb1 <- zeroinfl(Crabs ~ Site | 1, data = crabs, dist = "negbin", link = "logit")
@@ -49,7 +63,21 @@ m.zinb2 <- zeroinfl(Crabs ~ Site + AirTemp | 1, data = crabs, dist = "negbin", l
 m.zinb3 <- zeroinfl(Crabs ~ Site + AirTemp + AirTemp2 | 1, data = crabs, dist = "negbin", link = "logit")
 m.zinb4 <- zeroinfl(Crabs ~ AirTemp | 1, data = crabs, dist = "negbin", link = "logit")
 m.zinb5 <- zeroinfl(Crabs ~ AirTemp + AirTemp2 | 1, data = crabs, dist = "negbin", link = "logit")
-m.zinb6 <- zeroinfl(Crabs ~ Site | AirTemp, data = crabs, dist = "negbin", link = "logit")
+m.zinb6 <- zeroinfl(Crabs ~ Site | 1, data = crabs, dist = "negbin", link = "logit")
+
+m.zinb7 <- zeroinfl(Crabs ~ Site | Site, data = crabs, dist = "negbin", link = "logit")
+m.zinb8 <- zeroinfl(Crabs ~ Site + AirTemp | Site, data = crabs, dist = "negbin", link = "logit")
+m.zinb9 <- zeroinfl(Crabs ~ Site + AirTemp + AirTemp2 | Site, data = crabs, dist = "negbin", link = "logit")
+m.zinb10 <- zeroinfl(Crabs ~ AirTemp | Site, data = crabs, dist = "negbin", link = "logit")
+m.zinb11 <- zeroinfl(Crabs ~ AirTemp + AirTemp2 | Site, data = crabs, dist = "negbin", link = "logit")
+m.zinb12 <- zeroinfl(Crabs ~ Site | Site, data = crabs, dist = "negbin", link = "logit")
+
+m.zinb13 <- zeroinfl(Crabs ~ Site | AirTemp, data = crabs, dist = "negbin", link = "logit")
+m.zinb14 <- zeroinfl(Crabs ~ Site + AirTemp | AirTemp, data = crabs, dist = "negbin", link = "logit")
+m.zinb15 <- zeroinfl(Crabs ~ Site + AirTemp + AirTemp2 | AirTemp, data = crabs, dist = "negbin", link = "logit")
+m.zinb16 <- zeroinfl(Crabs ~ AirTemp | AirTemp, data = crabs, dist = "negbin", link = "logit")
+m.zinb17 <- zeroinfl(Crabs ~ AirTemp + AirTemp2 | AirTemp, data = crabs, dist = "negbin", link = "logit")
+m.zinb18 <- zeroinfl(Crabs ~ Site | AirTemp, data = crabs, dist = "negbin", link = "logit")
 
 m.list <- list(
   "null" = m.null,
@@ -69,12 +97,36 @@ m.list <- list(
   "zip4" = m.zip4,
   "zip5" = m.zip5,
   "zip6" = m.zip6,
+  "zip7" = m.zip7,
+  "zip8" = m.zip8,
+  "zip9" = m.zip9,
+  "zip10" = m.zip10,
+  "zip11" = m.zip11,
+  "zip12" = m.zip12,
+  "zip13" = m.zip13,
+  "zip14" = m.zip14,
+  "zip15" = m.zip15,
+  "zip16" = m.zip16,
+  "zip17" = m.zip17,
+  "zip18" = m.zip18,
   "zinb1" = m.zinb1,
   "zinb2" = m.zinb2,
   "zinb3" = m.zinb3,
   "zinb4" = m.zinb4,
   "zinb5" = m.zinb5,
-  "zinb6" = m.zinb6
+  "zinb6" = m.zinb6,
+  "zinb7" = m.zinb7,
+  "zinb8" = m.zinb8,
+  "zinb9" = m.zinb9,
+  "zinb10" = m.zinb10,
+  "zinb11" = m.zinb11,
+  "zinb12" = m.zinb12,
+  "zinb13" = m.zinb13,
+  "zinb14" = m.zinb14,
+  "zinb15" = m.zinb15,
+  "zinb16" = m.zinb16,
+  "zinb17" = m.zinb17,
+  "zinb18" = m.zinb18
 )
 ```
 
@@ -93,7 +145,7 @@ Best model is zinb6 now
 
 ## Visualizing the data with predict function
 ```{r predict}
-m.best <- m.list$zinb6
+m.best <- m.list$zinb14
 summary(m.best)
 
 crabs.newdata <- expand.grid(seq(min(crabs$AirTemp),max(crabs$AirTemp),0.1), levels(as.factor(crabs$Site)))
