@@ -11,4 +11,13 @@ sample.time <- sample(c(rep(20, 40), rep(30, 60)))
 bees <- as.data.frame(cbind(abund = sort(abund),
                             floral.diversity = sort(floral.diversity),
                             sample.time = sort(sample.time)))
+
+library("glmmTMB")
+
+bees.glm <- glm(abund ~ floral.diversity,
+                data = bees, family = "poisson")
+bees.glm0 <- glm(abund ~ floral.diversity + offset(log(sample.time)),
+                data = bees, family = "poisson")
+bees.glm0Z1 <- glmmTMB(abund ~ floral.diversity + offset(log(sample.time)),
+                       ziformula = ~ floral.diversity, data = bees, family = "poisson")
 ```
